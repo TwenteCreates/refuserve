@@ -1,5 +1,5 @@
 from googletrans import Translator
-from flask import Flask, jsonify, request, abort, url_for
+from flask import Flask, jsonify, request, abort, url_for, redirect
 from flask_cors import CORS
 from flask_cloudy import Storage
 
