@@ -1,11 +1,25 @@
 from googletrans import Translator
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, url_for
 from flask_cors import CORS
+from flask_cloudy import Storage
 
+from gtts import gTTS
 
+import subprocess
 app = Flask(__name__)
 CORS(app)
 
+# Update the config
+app.config.update({
+	"STORAGE_PROVIDER": "LOCAL", # Can also be S3, GOOGLE_STORAGE, etc...
+	"STORAGE_KEY": "",
+	"STORAGE_SECRET": "",
+	"STORAGE_CONTAINER": "./",  # a directory path for local, bucket name of cloud
+	"STORAGE_SERVER": True,
+	"STORAGE_SERVER_URL": "/files" # The url endpoint to access files on LOCAL provider
+})
+storage = Storage()
+storage.init_app(app)
 
 from pymongo import MongoClient
 
@@ -148,6 +162,39 @@ def translate_api_call():
 def hello_world():
     return 'Hello from Flask!'
 
+@app.route('/voice-changer', methods=['POST'])
+def get_audio_for_youtube_link():
+    import pdb; pdb.set_trace()
+    # resp = dict()
+    youtube_uri = request.get_json().get('url', '') #youtube uri link
+    lang = request.get_json().get('lang', 'en')
+    filename = youtube_uri.split('/')[-1]
+    vtt_fullname = '%s.%s.vtt' %(filename, lang)
+    # 1. call youtube-dl to create the vtt
+    subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
+                     youtube_uri, '--srt-lang', lang,
+                     '-o', filename ])
+    # 2. vtt to transcript
+    #python test.py example.hi.vtt --transcript --scc_lang=hi
+    subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
+                     '--scc_lang', lang])
+    # 3. tts the transcript
+    file_contents = open('transcript.txt', encoding='utf-8').read()
+    tts = gTTS(text=file_contents, lang='en', slow=True)
+    mp3_filename = '%s.mp3' %(filename)
+    tts.save(mp3_filename)
+    storage.upload(mp3_filename)
+    import os; os.remove(mp3_filename)
+    # resp['audio'] = url
+    return redirect(url_for("download", object_name=mp3_filename))
 
+@app.route("/download/<path:object_name>")
+def download(object_name):
+    my_object = storage.get(object_name)
+    if my_object:
+        download_url = my_object.download()
+        return download_url
+    else:
+        abort(404, "File doesn't exist")
 if __name__ == '__main__':
     app.run(host= '0.0.0.0')
