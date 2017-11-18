@@ -1,5 +1,5 @@
 from googletrans import Translator
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 
 
@@ -14,7 +14,7 @@ db = client.test_database
 collection = db.chats1
 collection2 = db.users1
 
-
+#tested
 @app.route('/chat', methods=['POST'])
 def create_message():
     request_json = request.get_json()
@@ -28,14 +28,14 @@ def create_message():
         }
     return jsonify(res)
 
-
+#tested
 @app.route('/chat', methods=['GET'])
 def read_message():
     request_json = request.values
     print request_json
     if not request_json:
         raise
-    user1 = request_json.get("user1", "ara")    #mine
+    user1 = request_json.get("user1", "ali")    #mine
     user2 = request_json.get("user2", "anand")  #other
     lang = request_json.get("lang", None)
     res = db.chats1.find(
@@ -56,6 +56,7 @@ def read_message():
         lis.append(element)
     return jsonify(lis)
 
+#tested
 @app.route('/message-list', methods=['GET'])
 def get_last_k_messages():
     request_json = request.values
@@ -108,6 +109,7 @@ def create_user():
         }
     return jsonify(res)
 
+#tested
 @app.route('/user', methods=['GET'])
 def read_user():
     request_json = request.get_json()
