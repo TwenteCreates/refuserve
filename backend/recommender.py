@@ -64,8 +64,5 @@ mySkills=['Python','HTML/CSS','R packages','JavaScript/jQuery','Multivariable Ca
 
 
 
-recommendJobs(mySkills)    
-recommendVideos('Data Analyst')
-
 
     

@@ -4,7 +4,7 @@ from flask_cors import CORS
 from flask_cloudy import Storage
 
 from gtts import gTTS
-
+import recommender
 import subprocess
 app = Flask(__name__)
 CORS(app)
@@ -207,5 +207,18 @@ def download(object_name):
         return download_url
     else:
         abort(404, "File doesn't exist")
+        
+@app.route("/recommend/videos", methods=["GET"])
+def recommend_videos():
+    skills = request.values.get('skills', [])
+    resp = recommendVideos(skills)
+    jsonify(resp)
+    
+@app.route("/recommend/jobs", methods=["GET"])
+def recommend_jobs():
+    job = request.values.get('job', '')
+    resp = recommendJobs(job)
+    jsonify(resp)    
+    
 if __name__ == '__main__':
     app.run(host= '0.0.0.0')
