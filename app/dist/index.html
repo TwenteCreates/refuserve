@@ -1,7 +1,9 @@
 <!doctype html>
-<html>
+<html ng-app="hackApp">
 
 	<head>
+
+		<base href="/app/dist/">
 
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -23,38 +25,32 @@
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">		
 		<link rel="stylesheet" href="style.css">
 
-		<script src="bundle.js"></script>
-
 	</head>
 
 	<body>
 
-		<nav class="primary-navbar text-center">
-			<div class="border-bottom p-2">
-				<div class="input-group">
-					<span class="input-group-btn">
-							<button class="btn btn-secondary" type="button"><i class="ion ion-md-add" aria-label="Attach"></i></button>
-					</span>
-					<input type="text" class="form-control bg-none" placeholder="Tap here to talk...">
-					<span class="input-group-btn">
-						<button class="btn btn-secondary" type="button"><i class="ion ion-md-send" aria-label="Send"></i></button>
-					</span>
-				</div>
-			</div>
-			<ul class="d-flex align-items-center justify-content-around">
-				<li>Resume</li>
-				<li>Stats</li>
-				<li>
-					<img alt="Logo" src="android-chrome-192x192.png">
-				</li>
-				<li>Profile</li>
-				<li>Settings</li>
-			</ul>
-		</nav>
+		<div class="d-flex flex-column justify-content-between" style="height: 100vh">
+			
+			<main id="content" class="d-flex flex-column justify-content-between" style="height: 100vh" ng-view></main>
 
-		<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+			<nav class="primary-navbar text-center">
+				<ul class="d-flex align-items-center justify-content-around">
+					<li><a ng-href="./#!/a"><i class="ion ion-md-document"></i>R&eacute;sum&eacute;</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-school"></i>Learn</a></li>
+					<li><a ng-href="./#!/">
+						<img alt="Logo" src="android-chrome-192x192.png">
+					</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-person"></i>Profile</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-settings"></i>Settings</a></li>
+				</ul>
+			</nav>
+		
+		</div>
+
+		<script src="https://code.jquery.com/jquery-3.2.1.min.js" ></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js" integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh" crossorigin="anonymous"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>		
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>
+		<script src="bundle.js"></script>		
 
 	</body>
 
