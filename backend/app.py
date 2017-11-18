@@ -170,14 +170,23 @@ def get_audio_for_youtube_link():
     lang = request.get_json().get('lang', 'en')
     filename = youtube_uri.split('/')[-1]
     vtt_fullname = '%s.%s.vtt' %(filename, lang)
+    # proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    # print proc.communicate()[0]
     # 1. call youtube-dl to create the vtt
-    subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
-                     youtube_uri, '--srt-lang', lang,
-                     '-o', filename ])
+    srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
+        %(youtube_uri, lang, filename)
+    proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
+    print proc.communicate()[0]
+
+    # subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
+    #                  youtube_uri, '--srt-lang', lang,
+    #                  '-o', filename ])
     # 2. vtt to transcript
     #python test.py example.hi.vtt --transcript --scc_lang=hi
-    subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
-                     '--scc_lang', lang])
+    transcript_creat_commmand = 'python vtt-to-transcript.py %s --transcript --scc_lang %s' \
+        %(vtt_fullname, lang)
+    # subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
+    #                  '--scc_lang', lang])
     # 3. tts the transcript
     file_contents = open('transcript.txt', encoding='utf-8').read()
     tts = gTTS(text=file_contents, lang='en', slow=True)
