@@ -2,22 +2,48 @@
 	Chat
 </header>
 
-<div class="p-4">
-	<div class="chatbox-container mb-4">
+<div class="p-4 chat-window">
+	<div class="chatbox-element" ng-repeat="message in messages">
+		<div class="chatbox-container mb-4" ng-if="message.user == 'bot'">
+			<div class="chatbox-inside d-flex align-items-stretch">
+				<div class="chat-icon d-flex align-items-end">
+					<img alt="Profile picture" src="https://www.gravatar.com/avatar/50050c94f3f52936bf1c31bceb439dde?d=identicon&s=128">
+				</div>
+				<div class="chat-content">
+					<div class="chatbox">{{ message.text }}</div>
+				</div>
+			</div>
+		</div>
+		<div class="chatbox-container mb-4" ng-if="message.user == 'user'">
+			<div class="chatbox-inside d-flex align-items-stretch justify-content-end">
+				<div class="chat-content">
+					<div class="chatbox mine">{{ message.text }}</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="chatbox-container mb-4 typing-chatbox">
 		<div class="chatbox-inside d-flex align-items-stretch">
 			<div class="chat-icon d-flex align-items-end">
 				<img alt="Profile picture" src="https://www.gravatar.com/avatar/50050c94f3f52936bf1c31bceb439dde?d=identicon&s=128">
 			</div>
 			<div class="chat-content">
-				<div class="chatbox">Hey buddy</div>
-			</div>
-		</div>
-	</div>
-	<div class="chatbox-container mb-4">
-		<div class="chatbox-inside d-flex align-items-stretch justify-content-end">
-			<div class="chat-content">
-					<div class="chatbox mine">Hi, how are you?</div>
+				<div class="chatbox">
+					<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 24 30" style="enable-background:new 0 0 50 50;" xml:space="preserve"> <rect x="0" y="9.44444" width="4" height="12.1111" fill="#333"> <animate attributeName="height" attributeType="XML" values="5;21;5" begin="0s" dur="0.6s" repeatCount="indefinite"></animate> <animate attributeName="y" attributeType="XML" values="13; 5; 13" begin="0s" dur="0.6s" repeatCount="indefinite"></animate> </rect> <rect x="10" y="12.5556" width="4" height="5.88889" fill="#333"> <animate attributeName="height" attributeType="XML" values="5;21;5" begin="0.15s" dur="0.6s" repeatCount="indefinite"></animate> <animate attributeName="y" attributeType="XML" values="13; 5; 13" begin="0.15s" dur="0.6s" repeatCount="indefinite"></animate> </rect> <rect x="20" y="8.55556" width="4" height="13.8889" fill="#333"> <animate attributeName="height" attributeType="XML" values="5;21;5" begin="0.3s" dur="0.6s" repeatCount="indefinite"></animate> <animate attributeName="y" attributeType="XML" values="13; 5; 13" begin="0.3s" dur="0.6s" repeatCount="indefinite"></animate> </rect> </svg>
+				</div>
 			</div>
 		</div>
 	</div>
 </div>
+
+<form class="border-bottom messenger-block p-2" ng-submit="sendMessage();">
+	<div class="input-group">
+		<span class="input-group-btn">
+			<button class="btn btn-secondary" type="button"><i class="ion ion-md-add" aria-label="Attach"></i></button>
+		</span>
+		<input ng-model="messageText" type="text" class="form-control bg-none" placeholder="Tap here to talk...">
+		<span class="input-group-btn">
+			<button class="btn btn-secondary" type="submit"><i class="ion ion-md-send" aria-label="Send"></i></button>
+		</span>
+	</div>
+</form>

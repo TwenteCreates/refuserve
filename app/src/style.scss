@@ -10,7 +10,7 @@ body {
 	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.primary-navbar {
+.primary-navbar, .messenger-block {
 	background: #f7f7f9;
 	border-top: 1px solid rgba(0, 0, 0, 0.1);
 	position: fixed;
@@ -31,6 +31,9 @@ body {
 				color: #888;
 				font-size: 75%;
 				font-weight: 500;
+				&:hover {
+					text-decoration: none;
+				}
 			}
 			img {
 				max-height: 45px;
@@ -80,5 +83,19 @@ main {
 			background-color: $color;
 			color: #fff;
 		}
+		svg {
+			height: 15px;
+			transform: translateY(2px) scale(1.4);
+			rect {
+				fill: $color;
+			}
+		}
 	}
+	&.typing-chatbox {
+		display: none;
+	}
+}
+
+.chat-window {
+	overflow: auto;
 }
