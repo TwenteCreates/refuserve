@@ -179,7 +179,7 @@ def get_audio_for_youtube_link():
     subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
                      '--scc_lang', lang])
     # 3. tts the transcript
-    file_contents = open('transcript.txt', 'encoding'='utf-8').read()
+    file_contents = open('transcript.txt', encoding='utf-8').read()
     tts = gTTS(text=file_contents, lang='en', slow=True)
     mp3_filename = '%s.mp3' %(filename)
     tts.save(mp3_filename)
