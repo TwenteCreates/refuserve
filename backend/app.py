@@ -185,6 +185,8 @@ def get_audio_for_youtube_link():
     #python test.py example.hi.vtt --transcript --scc_lang=hi
     transcript_creat_commmand = 'python vtt-to-transcript.py %s --transcript --scc_lang %s' \
         %(vtt_fullname, lang)
+    proc = subprocess.Popen(transcript_creat_commmand, shell=True, stdout=subprocess.PIPE)
+    print proc.communicate()[0]
     # subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
     #                  '--scc_lang', lang])
     # 3. tts the transcript
