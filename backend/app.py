@@ -166,8 +166,8 @@ def hello_world():
 def get_audio_for_youtube_link():
     import pdb; pdb.set_trace()
     # resp = dict()
-    youtube_uri = request.values.get('url', '') #youtube uri link
-    lang = request.values.get('lang', 'en')
+    youtube_uri = request.get_json().get('url', '') #youtube uri link
+    lang = request.get_json().get('lang', 'en')
     filename = youtube_uri.split('/')[-1]
     vtt_fullname = '%s.%s.vtt' %(filename, lang)
     # 1. call youtube-dl to create the vtt
