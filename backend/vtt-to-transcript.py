@@ -43,7 +43,6 @@ def main():
     (options, args) = parser.parse_args()
 
     try:
-        import pdb; pdb.set_trace()
         filename = args[0]
     except:
         raise Exception(
@@ -96,7 +95,7 @@ def write_captions(content, options):
         print pycaption.SRTWriter().write(content).encode("utf-8")
     if options.transcript:
         x = TranscriptWriter().write(content).encode("utf-8")
-        with open('transript.hi.txt', "w") as f: f.write(x)
+        with open('transcript.txt', "w") as f: f.write(x)
 
 
 if __name__ == '__main__':

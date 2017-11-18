@@ -1,5 +1,5 @@
 from googletrans import Translator
-from flask import Flask, jsonify, request, abort, url_for
+from flask import Flask, jsonify, request, abort, url_for, redirect
 from flask_cors import CORS
 from flask_cloudy import Storage
 
@@ -164,7 +164,6 @@ def hello_world():
 
 @app.route('/voice-changer', methods=['POST'])
 def get_audio_for_youtube_link():
-    import pdb; pdb.set_trace()
     # resp = dict()
     youtube_uri = request.get_json().get('url', '') #youtube uri link
     lang = request.get_json().get('lang', 'en')
@@ -183,6 +182,8 @@ def get_audio_for_youtube_link():
     #                  '-o', filename ])
     # 2. vtt to transcript
     #python test.py example.hi.vtt --transcript --scc_lang=hi
+    import pdb; pdb.set_trace()
+
     transcript_creat_commmand = 'python vtt-to-transcript.py %s --transcript --scc_lang %s' \
         %(vtt_fullname, lang)
     proc = subprocess.Popen(transcript_creat_commmand, shell=True, stdout=subprocess.PIPE)
@@ -190,7 +191,10 @@ def get_audio_for_youtube_link():
     # subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
     #                  '--scc_lang', lang])
     # 3. tts the transcript
-    file_contents = open('transcript.txt', encoding='utf-8').read()
+    import codecs
+    with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
+        file_contents = f.read()
+    # file_contents = open(, encoding='utf-8').read()
     tts = gTTS(text=file_contents, lang='en', slow=True)
     mp3_filename = '%s.mp3' %(filename)
     tts.save(mp3_filename)
