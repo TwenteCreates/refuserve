@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css?family=Quicksand");
+@import url("https://fonts.googleapis.com/css?family=Quicksand:400,500");
 
 $color: #2c8f9f;
 
@@ -16,15 +16,29 @@ body {
 	position: fixed;
 	bottom: 0;
 	left: 0; width: 100%;
+	i {
+		display: block;
+		font-size: 150%;
+	}
 	ul {
 		margin: 0;
 		padding: 0;
 		li {
 			margin: 0;
-			padding: 10px 0;
 			list-style: none;
+			padding: 2px 0;
+			a {
+				color: #888;
+				font-size: 75%;
+				font-weight: 500;
+			}
 			img {
-				max-height: 40px;
+				max-height: 45px;
+			}
+			i {
+				font-size: 200%;
+				margin-top: 5px;
+				margin-bottom: -3px;
 			}
 		}
 	}
@@ -34,8 +48,37 @@ body {
 			background: none;
 			border: none;
 		}
-		i {
-			transform: scale(1.5);
+	}
+}
+
+main {
+	overflow: auto;
+}
+
+.primary-header {
+	background: #f7f7f9;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.chatbox-container {
+	.chat-icon {
+		img {
+			height: 35px;
+			width: 35px;
+			border-radius: 100%;
+			margin-right: 10px;
+			margin-bottom: 2px;
+		}
+	}
+	.chatbox {
+		box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+		display: inline-block;
+		padding: 10px 20px;
+		border-radius: 50px 50px 50px 20px;
+		&.mine {
+			border-radius: 50px 50px 20px 50px;
+			background-color: $color;
+			color: #fff;
 		}
 	}
 }

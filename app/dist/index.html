@@ -1,7 +1,9 @@
 <!doctype html>
-<html>
+<html ng-app="hackApp">
 
 	<head>
+
+		<base href="/app/dist/">
 
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -23,11 +25,11 @@
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">		
 		<link rel="stylesheet" href="style.css">
 
-		<script src="bundle.js"></script>
-
 	</head>
 
 	<body>
+
+		<main id="content" ng-view></main>
 
 		<nav class="primary-navbar text-center">
 			<div class="border-bottom p-2">
@@ -42,19 +44,20 @@
 				</div>
 			</div>
 			<ul class="d-flex align-items-center justify-content-around">
-				<li>Resume</li>
-				<li>Stats</li>
+				<li><a href="#"><i class="ion ion-md-document"></i>R&eacute;sum&eacute;</a></li>
+				<li><a href="#"><i class="ion ion-md-school"></i>Learn</a></li>
 				<li>
 					<img alt="Logo" src="android-chrome-192x192.png">
 				</li>
-				<li>Profile</li>
-				<li>Settings</li>
+				<li><a href="#"><i class="ion ion-md-person"></i>Profile</a></li>
+				<li><a href="#"><i class="ion ion-md-settings"></i>Settings</a></li>
 			</ul>
 		</nav>
 
 		<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js" integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh" crossorigin="anonymous"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>		
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>
+		<script src="bundle.js"></script>		
 
 	</body>
 
