@@ -51,6 +51,9 @@ body {
 			background: none;
 			border: none;
 		}
+		input.form-control {
+			color: #000;
+		}
 	}
 }
 
@@ -98,4 +101,10 @@ main {
 
 .chat-window {
 	overflow: auto;
+}
+
+@media (max-width: 500px) {
+	.form-control:focus {
+		box-shadow: none;
+	}
 }
