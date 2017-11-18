@@ -163,7 +163,7 @@ def hello_world():
     return 'Hello from Flask!'
 
 @app.route('/voice-changer', methods=['POST'])
-def get_audio_for_youtube_link
+def get_audio_for_youtube_link():
     import pdb; pdb.set_trace()
     # resp = dict()
     youtube_uri = request.values.get('url', '') #youtube uri link
