@@ -38052,6 +38052,10 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 						var botMessage = sayHelloIn(content) + "! I'll remember this to make things easier for you.";
 						$scope.botSays(botMessage);
 						error = 0;
+					} else if (currentAction == "job") {
+						var botMessage = "That sounds like an exciting job!";
+						$scope.botSays(botMessage);
+						error = 0;
 					}
 					if (error == 0) {
 						$localForage.setItem("currentAction", null);
@@ -38077,7 +38081,9 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 	$scope.scrollToBottom = function() {
 		$(".chat-window").animate({ scrollTop: $(".chat-window").prop("scrollHeight") }, 500);
 	};
-	$scope.botSays = function(text, action = null, options = null) {
+	$scope.botSays = function(text, action, options) {
+		action = action || null;
+		options = options || null;
 		if (options) {
 			$scope.answerOptions = options;
 			$scope.messageText = "Select an option";
@@ -38090,7 +38096,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 		$timeout(function() {
 			$scope.scrollToBottom();
 		}, 1);
-		return new Promise((resolve, reject) => {
+		return new Promise(function(resolve, reject) {
 			$timeout(function() {
 				$(".typing-chatbox").hide();
 				$scope.messages.push({
@@ -38127,7 +38133,13 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 				$scope.botSays("Welcome to the App. What should I call you?", "name").then(function() {
 					$scope.botSays("I'd love to get to know you better.").then(function() {
 						$scope.botSays("How old are you? (Enter a number)", "age").then(function() {
-							$scope.botSays("What's your native language?", "lang", ["English", "Hindi", "Arabic", "Urdu", "Turkish", "Spanish", "Portuguese", "Russian", "Chinese"]);
+							$scope.botSays("What's your native language?", "lang", ["English", "Hindi", "Arabic", "Urdu", "Turkish", "Spanish", "Portuguese", "Russian", "Chinese"]).then(function() {
+								$scope.botSays("Now comes the exciting part: your work profile!").then(function() {
+									$scope.botSays("What role are you interested in?", "job", ["Frontend Developer", "Backend Developer", "UI/UX Designer", "HR Manager", "Marketing Manager", "Entrepreneur"]).then(function() {
+										$scope.botSays("Where was your last job? Name the company.");
+									});
+								});
+							});
 						});
 					});
 				});
