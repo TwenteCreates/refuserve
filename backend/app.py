@@ -164,7 +164,6 @@ def hello_world():
 
 @app.route('/voice-changer', methods=['POST'])
 def get_audio_for_youtube_link():
-    import pdb; pdb.set_trace()
     # resp = dict()
     youtube_uri = request.get_json().get('url', '') #youtube uri link
     lang = request.get_json().get('lang', 'en')
@@ -183,6 +182,8 @@ def get_audio_for_youtube_link():
     #                  '-o', filename ])
     # 2. vtt to transcript
     #python test.py example.hi.vtt --transcript --scc_lang=hi
+    import pdb; pdb.set_trace()
+
     transcript_creat_commmand = 'python vtt-to-transcript.py %s --transcript --scc_lang %s' \
         %(vtt_fullname, lang)
     proc = subprocess.Popen(transcript_creat_commmand, shell=True, stdout=subprocess.PIPE)
