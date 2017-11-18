@@ -37,6 +37,8 @@ body {
     color: #aaa;
     background: none;
     border: none; }
+  .primary-navbar .input-group input.form-control, .messenger-block .input-group input.form-control {
+    color: #000; }
 
 main {
   overflow: auto; }
@@ -71,5 +73,9 @@ main {
 
 .chat-window {
   overflow: auto; }
+
+@media (max-width: 500px) {
+  .form-control:focus {
+    box-shadow: none; } }
 
 /*# sourceMappingURL=style.css.map */

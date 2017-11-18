@@ -299,6 +299,17 @@
 		"outputPathIsSetByUser": 0,
 		"processed": 0
 		},
+	"\/dist\/bot.png": {
+		"fileType": 32768,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"initialSize": 60952,
+		"inputAbbreviatedPath": "\/dist\/bot.png",
+		"outputAbbreviatedPath": "\/dist\/bot.png",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0,
+		"processed": 0
+		},
 	"\/dist\/bundle.js": {
 		"fileType": 64,
 		"ignore": 1,
