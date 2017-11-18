@@ -1,7 +1,6 @@
 require("angular");
-var RSVP = require("rsvp");
 
-var app = angular.module("hackApp", [require("angular-route")]);
+var app = angular.module("hackApp", [require("angular-route"), require("angular-localforage")]);
 
 app.config(function($routeProvider) {
 	$routeProvider
@@ -30,30 +29,48 @@ app.config(function($routeProvider) {
 // 	});
 // });
 
-app.controller("chatCtrl", function($scope, $timeout) {
+app.controller("chatCtrl", function($scope, $timeout, $localForage, $window) {
 	$scope.messages = [];
-	$(".messenger-block").css("bottom", $(".primary-navbar").height() + "px");
-	$(".chat-window").css("height", $(document).height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
-	$scope.sendMessage = function() {
-		$scope.messages.push({
-			user: "user",
-			text: $scope.messageText
-		});
-		switch ($scope.messageText) {
+	$scope.doAction = function(content) {
+		switch (content.toLowerCase().trim()) {
 			case "forget":
-				$scope.botSays("Okay, bye bye!");
+				$scope.botSays("Okay, bye bye!").then(function() {
+					$localForage.setItem("messages", null).then(function() {
+						$scope.messages = null;
+						$window.location.reload();
+					});
+				});
+				break;
+			case "refresh":
+				$scope.botSays("Sounds good, refreshing the app.").then(function() {
+					$window.location.reload();
+				});
 				break;
 			default:
+				$scope.botSays(randomFromArray(["👍", "🤔", "🤷"]));
 				break;
+		}
+	}
+	$scope.sendMessage = function() {
+		if ($scope.messageText) {
+			$scope.doAction($scope.messageText);
+			$scope.messages.push({
+				user: "user",
+				text: $scope.messageText
+			});
 		}
 		$scope.messageText = "";
 		$scope.scrollToBottom();
+		$scope.saveMessages();
 	};
 	$scope.scrollToBottom = function() {
 		$(".chat-window").animate({ scrollTop: $(".chat-window").prop("scrollHeight") }, 500);
 	};
-	$scope.botSays = function(text) {
+	$scope.botSays = function(text, action) {
 		$(".typing-chatbox").show();
+		$timeout(function() {
+			$scope.scrollToBottom();
+		}, 1);
 		return new Promise((resolve, reject) => {
 			$timeout(function() {
 				$(".typing-chatbox").hide();
@@ -61,18 +78,34 @@ app.controller("chatCtrl", function($scope, $timeout) {
 					user: "bot",
 					text: text
 				});
+				$scope.scrollToBottom();
+				$scope.currentAction = "name";
+				$scope.saveMessages();
 				$timeout(resolve, 1000);
 			}, 1500);
 		});
 	}
-	$scope.sayHello = function() {
-		$scope.botSays("Hey stranger!").then(function() {
-			$scope.botSays("Welcome to the App. What should I call you?");
-		});
+	$scope.saveMessages = function() {
+		console.log($scope.messages);
+		$localForage.setItem("messages", $scope.messages);
+		$localForage.setItem("currentAction", $scope.currentAction);
 	};
-	$scope.sayHello();
+	$localForage.getItem("messages").then(function(messages) {
+		if (messages) {
+			$scope.messages = messages;
+			$scope.scrollToBottom();
+		} else {
+			$scope.botSays("Hey stranger!").then(function() {
+				$scope.botSays("Welcome to the App. What should I call you?");
+			});
+		}
+	});
 });
 
 window.onload = function() {
-	$(".chat-window").css("height", $(document).height() - $(".messenger-block").height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
+	// $(".chat-window").css("height", $(document).height() - $(".messenger-block").height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
+}
+
+function randomFromArray(items) {
+	return items[Math.floor(Math.random() * items.length)];
 }

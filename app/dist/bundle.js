@@ -1,4 +1,2832 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function (global){
+/**
+ * angular-localforage - Angular service & directive for https://github.com/mozilla/localForage (Offline storage, improved.)
+ * @version v1.3.7
+ * @link https://github.com/ocombe/angular-localForage
+ * @license MIT
+ * @author Olivier Combe <olivier.combe@gmail.com>
+ */
+(function(root, factory) {
+  'use strict';
+
+  var angular = (root && root.angular) || (window && window.angular);
+  if(typeof define === 'function' && define.amd) {                    // AMD
+    define(['localforage'], function(localforage) {
+      return factory(angular, localforage);
+    });
+  } else if(typeof exports === 'object' || typeof global === 'object') {
+    if(typeof module === 'undefined') {
+      global.module.exports = factory(angular, require('localforage')); // NW.js
+    } else {
+      module.exports = factory(angular, require('localforage')); // Node/Browserify
+    }
+  } else {
+    return factory(angular, root.localforage);                        // Browser
+  }
+})(this, function(angular, localforage, undefined) {
+  'use strict';
+
+  var angularLocalForage = angular.module('LocalForageModule', ['ng']);
+  angularLocalForage.provider('$localForage', function() {
+    var lfInstances = {},
+      defaultConfig = {
+        name: 'lf'
+      },
+    // Send signals for each of the following actions ?
+      notify = {
+        setItem: false,
+        removeItem: false
+      },
+      watchers = {};
+
+    // Setter for notification config, itemSet & itemRemove should be booleans
+    this.setNotify = function(itemSet, itemRemove) {
+      notify = {
+        setItem: itemSet,
+        removeItem: itemRemove
+      };
+    };
+
+    this.config = function(config) {
+      if(!angular.isObject(config)) {
+        throw new Error('The config parameter should be an object');
+      }
+      angular.extend(defaultConfig, config);
+    };
+
+    this.$get = ['$rootScope', '$q', '$parse', function($rootScope, $q, $parse) {
+      var LocalForageInstance = function LocalForageInstance(params) {
+        if(angular.isDefined(params)) {
+          this._localforage = localforage.createInstance(params);
+        } else {
+          this._localforage = localforage;
+          localforage.config(defaultConfig);
+        }
+      };
+
+      LocalForageInstance.prototype.createInstance = function createInstance(config) {
+        if(angular.isObject(config)) { // create new instance
+          config = angular.extend({}, defaultConfig, config);
+          if(angular.isDefined(lfInstances[config.name])) {
+            throw new Error('A localForage instance with the name ' + config.name + ' is already defined.');
+          }
+
+          lfInstances[config.name] = new LocalForageInstance(config);
+          return lfInstances[config.name];
+        } else {
+          throw new Error('The parameter should be a config object.')
+        }
+      };
+
+      LocalForageInstance.prototype.instance = function instance(name) {
+        if(angular.isUndefined(name)) {
+          return lfInstances[defaultConfig.name];
+        } else if(angular.isString(name)) {
+          if(angular.isDefined(lfInstances[name])) {
+            return lfInstances[name];
+          } else {
+            throw new Error('No localForage instance of that name exists.')
+          }
+        } else {
+          throw new Error('The parameter should be a string.')
+        }
+      };
+
+      // Setter for the storage driver
+      LocalForageInstance.prototype.setDriver = function setDriver(driver) {
+        return this._localforage.setDriver(driver);
+      };
+
+      // Getter for the storage driver
+      LocalForageInstance.prototype.driver = function driver() {
+        return this._localforage.driver();
+      };
+
+      // Define a new driver for upstream consistency
+      LocalForageInstance.prototype.defineDriver = function defineDriver(driver) {
+        return this._localforage.defineDriver(driver);
+      }
+
+      // Directly adds a value to storage
+      LocalForageInstance.prototype.setItem = function setItem(key, value) {
+        // throw error on undefined key, we allow undefined value because... why not ?
+        if(angular.isUndefined(key)) {
+          throw new Error("You must define a key to set");
+        }
+
+        var self = this;
+
+        if(angular.isArray(key)) {
+          if(!angular.isArray(value)) {
+            throw new Error('If you set an array of keys, the values should be an array too');
+          }
+
+          return $q.all(key.map(function (k, index) {
+            return self.setItem(k, value[index]);
+          }));
+        } else {
+          var deferred = $q.defer(),
+            args = arguments,
+            localCopy = stripMeta(value);
+
+          self._localforage.setItem(self.prefix() + key, localCopy)
+            .then(function success() {
+              if(notify.setItem) {
+                $rootScope.$broadcast('LocalForageModule.setItem', {
+                  key: key,
+                  newvalue: localCopy,
+                  driver: self.driver()
+                });
+              }
+              deferred.resolve(localCopy);
+            })
+            .catch(function withError(error) {
+              self.onError(error, args, self.setItem, deferred);
+            });
+
+          return deferred.promise;
+        }
+
+        function stripMeta(value) {
+          var copy;
+          if (angular.isArray(value)) {
+            return value.map(stripMeta);
+          } else if (angular.isObject(value) && value.constructor === Object) {
+            copy = angular.extend({}, value);
+
+            angular.isDefined(copy.$promise) && delete copy.$promise;
+            angular.isDefined(copy.$$hashKey) && delete copy.$$hashKey;
+
+            return Object
+              .keys(copy)
+              .reduce(function stripEntries(acc, key) {
+                acc[key] = stripMeta(copy[key]);
+                return acc;
+              }, {});
+          }
+          return value;
+        }
+      };
+
+      // Directly get a value from storage
+      LocalForageInstance.prototype.getItem = function getItem(key, rejectOnNull) {
+        // throw error on undefined key
+        if(angular.isUndefined(key)) {
+          throw new Error("You must define a key to get");
+        }
+
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this,
+          promise;        
+        if(angular.isArray(key)) {
+          var res = [],
+            found = 0;
+          promise = self._localforage.iterate(function(value, k) {
+            var index = key.indexOf(self.prefix() + k);
+            if(index > -1) {
+              res[index] = value;
+              found++;
+            }
+            if(found === key.length) {
+              return res;
+            }
+          }).then(function() {
+            var shouldResolve = true;
+            for (var i = 0; i < key.length; i++) {
+              if (angular.isUndefined(res[i])) {
+                res[i] = null;
+                shouldResolve = false;
+              }
+            }
+            if (shouldResolve || !rejectOnNull) {
+              deferred.resolve(res);
+            } else {
+              deferred.reject(res);
+            }
+          });
+        } else {
+          promise = self._localforage.getItem(self.prefix() + key).then(function(item) {
+            if (rejectOnNull && item === null) {
+              deferred.reject(item);
+            } else {
+              deferred.resolve(item);
+            }
+          });
+        }
+
+        promise.then(null, function error(data) {
+          self.onError(data, args, self.getItem, deferred);
+        });
+
+        return deferred.promise;
+      };
+
+      // Iterate over all the values in storage
+      LocalForageInstance.prototype.iterate = function iterate(callback) {
+        // throw error on undefined key
+        if(angular.isUndefined(callback)) {
+          throw new Error("You must define a callback to iterate");
+        }
+
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this;
+
+        self._localforage.iterate(callback).then(function success(item) {
+          deferred.resolve(item);
+        }, function error(data) {
+          self.onError(data, args, self.iterate, deferred);
+        });
+
+        return deferred.promise;
+      };
+
+      // Remove an item from storage
+      LocalForageInstance.prototype.removeItem = function removeItem(key) {
+        // throw error on undefined key
+        if(angular.isUndefined(key)) {
+          throw new Error("You must define a key to remove");
+        }
+
+        var self = this;
+
+        if(angular.isArray(key)) {
+          var promises = [];
+          angular.forEach(key, function(k, index) {
+            promises.push(self.removeItem(k));
+          });
+
+          return $q.all(promises);
+        } else {
+          var deferred = $q.defer(),
+            args = arguments;
+
+          self._localforage.removeItem(self.prefix() + key).then(function success() {
+            if(notify.removeItem) {
+              $rootScope.$broadcast('LocalForageModule.removeItem', {key: key, driver: self.driver()});
+            }
+            deferred.resolve();
+          }, function error(data) {
+            self.onError(data, args, self.removeItem, deferred);
+          });
+
+          return deferred.promise;
+        }
+      };
+
+      // Get an item and removes it from storage
+      LocalForageInstance.prototype.pull = function pull(key) {
+        // throw error on undefined key
+        if(angular.isUndefined(key)) {
+          throw new Error("You must define a key to pull");
+        }
+
+        var self = this,
+          deferred = $q.defer(),
+          onError = function error(err) {
+            deferred.reject(err);
+          };
+
+        self.getItem(key).then(function success(value) {
+          self.removeItem(key).then(function success() {
+            deferred.resolve(value);
+          }, onError);
+        }, onError);
+
+        return deferred.promise;
+      };
+
+      // Remove all data for this app from storage
+      LocalForageInstance.prototype.clear = function clear() {
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this;
+
+        self._localforage.clear().then(function success(keys) {
+          deferred.resolve();
+        }, function error(data) {
+          self.onError(data, args, self.clear, deferred);
+        });
+        return deferred.promise;
+      };
+
+      // Return the key for item at position n
+      LocalForageInstance.prototype.key = function key(n) {
+        // throw error on undefined n
+        if(angular.isUndefined(n)) {
+          throw new Error("You must define a position to get for the key function");
+        }
+
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this;
+
+        self._localforage.key(n).then(function success(key) {
+          deferred.resolve(key);
+        }, function error(data) {
+          self.onError(data, args, self.key, deferred);
+        });
+        return deferred.promise;
+      };
+
+      var keys = function keys() {
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this;
+
+        self._localforage.keys().then(function success(keyList) {
+          if(defaultConfig.oldPrefix && self.driver() === 'localStorageWrapper') {
+            var tempKeyList = [];
+            for(var i = 0, len = keyList.length; i < len; i++) {
+              tempKeyList.push(keyList[i].substr(self.prefix().length, keyList[i].length));
+            }
+            keyList = tempKeyList;
+          }
+          deferred.resolve(keyList);
+        }, function error(data) {
+          self.onError(data, args, self.keys, deferred);
+        });
+        return deferred.promise;
+      };
+
+      // Return the list of keys stored for this application
+      LocalForageInstance.prototype.keys = keys;
+
+      // deprecated
+      LocalForageInstance.prototype.getKeys = keys;
+
+      // Returns the number of keys in this storage
+      LocalForageInstance.prototype.length = function() {
+        var deferred = $q.defer(),
+          args = arguments,
+          self = this;
+
+        self._localforage.length().then(function success(length) {
+          deferred.resolve(length);
+        }, function error(data) {
+          self.onError(data, args, length, deferred);
+        });
+        return deferred.promise;
+      };
+
+      /**
+       * Bind - let's you directly bind a LocalForage value to a $scope variable
+       * @param {Angular $scope} $scope - the current scope you want the variable available in
+       * @param {String/Object} opts - the key name of the variable you are binding OR an object with the key and custom options like default value or instance name
+       * Here are the available options you can set:
+       * * key: the key used in storage and in the scope (if scopeKey isn't defined)
+       * * defaultValue: the default value
+       * * name: name of the instance that should store the data
+       * * scopeKey: the key used in the scope
+       * @returns {*} - returns whatever the stored value is
+       */
+      LocalForageInstance.prototype.bind = function bind($scope, opts) {
+        if(angular.isString(opts)) {
+          opts = {
+            key: opts
+          }
+        } else if(!angular.isObject(opts) || angular.isUndefined(opts.key)) {
+          throw new Error("You must define a key to bind");
+        }
+
+        var defaultOpts = {
+          defaultValue: '',
+          name: defaultConfig.name
+        };
+
+        // If no defined options we use defaults otherwise extend defaults
+        opts = angular.extend({}, defaultOpts, opts);
+
+        var self = lfInstances[opts.name];
+
+        if(angular.isUndefined(self)) {
+          throw new Error("You must use the name of an existing instance");
+        }
+
+        // Set the storeName key for the LocalForage entry
+        // use user defined in specified
+        var scopeKey = opts.scopeKey || opts.key,
+          model = $parse(scopeKey);
+
+        return self.getItem(opts.key).then(function(item) {
+          if (item !== null) { // If it does exist assign it to the $scope value
+            model.assign($scope, item);
+          } else if(!angular.isUndefined(opts.defaultValue)) { // If a value doesn't already exist store it as is
+            model.assign($scope, opts.defaultValue);
+            self.setItem(opts.key, opts.defaultValue);
+          }
+
+          // Register a listener for changes on the $scope value
+          // to update the localForage value
+          if(angular.isDefined(watchers[opts.key])) {
+            watchers[opts.key]();
+          }
+
+          watchers[opts.key] = $scope.$watch(scopeKey, function(val) {
+            if(angular.isDefined(val)) {
+              self.setItem(opts.key, val);
+            }
+          }, true);
+          return item;
+        });
+      };
+
+      /**
+       * Unbind - let's you unbind a variable from localForage while removing the value from both
+       * the localForage and the local variable and sets it to null
+       * @param {String/Object} opts - the key name of the variable you are unbinding OR an object with the key and custom options like default value or instance name
+       * Here are the available options you can set:
+       * * key: the key used in storage and in the scope (if scopeKey isn't defined)
+       * * name: name of the instance that should store the data
+       * * scopeKey: the key used in the scope
+       */
+      LocalForageInstance.prototype.unbind = function unbind($scope, opts) {
+        if(angular.isString(opts)) {
+          opts = {
+            key: opts
+          }
+        } else if(!angular.isObject(opts) || angular.isUndefined(opts.key)) {
+          throw new Error("You must define a key to unbind");
+        }
+
+        var defaultOpts = {
+          scopeKey: opts.key,
+          name: defaultConfig.name
+        };
+
+        // If no defined options we use defaults otherwise extend defaults
+        opts = angular.extend({}, defaultOpts, opts);
+
+        var self = lfInstances[opts.name];
+
+        if(angular.isUndefined(self)) {
+          throw new Error("You must use the name of an existing instance");
+        }
+
+        $parse(opts.scopeKey).assign($scope, null);
+        if(angular.isDefined(watchers[opts.key])) {
+          watchers[opts.key](); // unwatch
+          delete watchers[opts.key];
+        }
+        return self.removeItem(opts.key);
+      };
+
+      LocalForageInstance.prototype.prefix = function() {
+        return this.driver() === 'localStorageWrapper' && defaultConfig.oldPrefix ? this._localforage.config().name + '.' : '';
+      };
+
+      // Handling errors
+      LocalForageInstance.prototype.onError = function(err, args, fct, deferred) {
+        // test for private browsing errors in Firefox & Safari
+        if(((angular.isObject(err) && err.name ? err.name === 'InvalidStateError' : (angular.isString(err) && err === 'InvalidStateError')) && this.driver() === 'asyncStorage')
+          || (angular.isObject(err) && err.code && err.code === 5)) {
+          var self = this;
+
+          self.setDriver('localStorageWrapper').then(function() {
+            fct.apply(self, args).then(function(item) {
+              deferred.resolve(item);
+            }, function(data) {
+              deferred.reject(data);
+            });
+          }, function() {
+            deferred.reject(err);
+          });
+        } else {
+          deferred.reject(err);
+        }
+      };
+
+      lfInstances[defaultConfig.name] = new LocalForageInstance();
+      return lfInstances[defaultConfig.name];
+    }]
+  });
+
+  angularLocalForage.directive('localForage', ['$localForage', function($localForage) {
+    return {
+      restrict: 'A',
+      link: function($scope, $element, $attrs) {
+        var opts = $scope.$eval($attrs.localForage);
+        if(angular.isObject(opts) && angular.isDefined(opts.key)) {
+          $localForage.bind($scope, opts);
+        } else {
+          $localForage.bind($scope, $attrs.localForage);
+        }
+      }
+    }
+  }]);
+
+  return angularLocalForage.name;
+});
+
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"localforage":2}],2:[function(require,module,exports){
+(function (global){
+/*!
+    localForage -- Offline Storage, Improved
+    Version 1.4.3
+    https://mozilla.github.io/localForage
+    (c) 2013-2016 Mozilla, Apache License 2.0
+*/
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.localforage = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw (f.code="MODULE_NOT_FOUND", f)}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
+'use strict';
+var immediate = _dereq_(2);
+
+/* istanbul ignore next */
+function INTERNAL() {}
+
+var handlers = {};
+
+var REJECTED = ['REJECTED'];
+var FULFILLED = ['FULFILLED'];
+var PENDING = ['PENDING'];
+
+module.exports = exports = Promise;
+
+function Promise(resolver) {
+  if (typeof resolver !== 'function') {
+    throw new TypeError('resolver must be a function');
+  }
+  this.state = PENDING;
+  this.queue = [];
+  this.outcome = void 0;
+  if (resolver !== INTERNAL) {
+    safelyResolveThenable(this, resolver);
+  }
+}
+
+Promise.prototype["catch"] = function (onRejected) {
+  return this.then(null, onRejected);
+};
+Promise.prototype.then = function (onFulfilled, onRejected) {
+  if (typeof onFulfilled !== 'function' && this.state === FULFILLED ||
+    typeof onRejected !== 'function' && this.state === REJECTED) {
+    return this;
+  }
+  var promise = new this.constructor(INTERNAL);
+  if (this.state !== PENDING) {
+    var resolver = this.state === FULFILLED ? onFulfilled : onRejected;
+    unwrap(promise, resolver, this.outcome);
+  } else {
+    this.queue.push(new QueueItem(promise, onFulfilled, onRejected));
+  }
+
+  return promise;
+};
+function QueueItem(promise, onFulfilled, onRejected) {
+  this.promise = promise;
+  if (typeof onFulfilled === 'function') {
+    this.onFulfilled = onFulfilled;
+    this.callFulfilled = this.otherCallFulfilled;
+  }
+  if (typeof onRejected === 'function') {
+    this.onRejected = onRejected;
+    this.callRejected = this.otherCallRejected;
+  }
+}
+QueueItem.prototype.callFulfilled = function (value) {
+  handlers.resolve(this.promise, value);
+};
+QueueItem.prototype.otherCallFulfilled = function (value) {
+  unwrap(this.promise, this.onFulfilled, value);
+};
+QueueItem.prototype.callRejected = function (value) {
+  handlers.reject(this.promise, value);
+};
+QueueItem.prototype.otherCallRejected = function (value) {
+  unwrap(this.promise, this.onRejected, value);
+};
+
+function unwrap(promise, func, value) {
+  immediate(function () {
+    var returnValue;
+    try {
+      returnValue = func(value);
+    } catch (e) {
+      return handlers.reject(promise, e);
+    }
+    if (returnValue === promise) {
+      handlers.reject(promise, new TypeError('Cannot resolve promise with itself'));
+    } else {
+      handlers.resolve(promise, returnValue);
+    }
+  });
+}
+
+handlers.resolve = function (self, value) {
+  var result = tryCatch(getThen, value);
+  if (result.status === 'error') {
+    return handlers.reject(self, result.value);
+  }
+  var thenable = result.value;
+
+  if (thenable) {
+    safelyResolveThenable(self, thenable);
+  } else {
+    self.state = FULFILLED;
+    self.outcome = value;
+    var i = -1;
+    var len = self.queue.length;
+    while (++i < len) {
+      self.queue[i].callFulfilled(value);
+    }
+  }
+  return self;
+};
+handlers.reject = function (self, error) {
+  self.state = REJECTED;
+  self.outcome = error;
+  var i = -1;
+  var len = self.queue.length;
+  while (++i < len) {
+    self.queue[i].callRejected(error);
+  }
+  return self;
+};
+
+function getThen(obj) {
+  // Make sure we only access the accessor once as required by the spec
+  var then = obj && obj.then;
+  if (obj && typeof obj === 'object' && typeof then === 'function') {
+    return function appyThen() {
+      then.apply(obj, arguments);
+    };
+  }
+}
+
+function safelyResolveThenable(self, thenable) {
+  // Either fulfill, reject or reject with error
+  var called = false;
+  function onError(value) {
+    if (called) {
+      return;
+    }
+    called = true;
+    handlers.reject(self, value);
+  }
+
+  function onSuccess(value) {
+    if (called) {
+      return;
+    }
+    called = true;
+    handlers.resolve(self, value);
+  }
+
+  function tryToUnwrap() {
+    thenable(onSuccess, onError);
+  }
+
+  var result = tryCatch(tryToUnwrap);
+  if (result.status === 'error') {
+    onError(result.value);
+  }
+}
+
+function tryCatch(func, value) {
+  var out = {};
+  try {
+    out.value = func(value);
+    out.status = 'success';
+  } catch (e) {
+    out.status = 'error';
+    out.value = e;
+  }
+  return out;
+}
+
+exports.resolve = resolve;
+function resolve(value) {
+  if (value instanceof this) {
+    return value;
+  }
+  return handlers.resolve(new this(INTERNAL), value);
+}
+
+exports.reject = reject;
+function reject(reason) {
+  var promise = new this(INTERNAL);
+  return handlers.reject(promise, reason);
+}
+
+exports.all = all;
+function all(iterable) {
+  var self = this;
+  if (Object.prototype.toString.call(iterable) !== '[object Array]') {
+    return this.reject(new TypeError('must be an array'));
+  }
+
+  var len = iterable.length;
+  var called = false;
+  if (!len) {
+    return this.resolve([]);
+  }
+
+  var values = new Array(len);
+  var resolved = 0;
+  var i = -1;
+  var promise = new this(INTERNAL);
+
+  while (++i < len) {
+    allResolver(iterable[i], i);
+  }
+  return promise;
+  function allResolver(value, i) {
+    self.resolve(value).then(resolveFromAll, function (error) {
+      if (!called) {
+        called = true;
+        handlers.reject(promise, error);
+      }
+    });
+    function resolveFromAll(outValue) {
+      values[i] = outValue;
+      if (++resolved === len && !called) {
+        called = true;
+        handlers.resolve(promise, values);
+      }
+    }
+  }
+}
+
+exports.race = race;
+function race(iterable) {
+  var self = this;
+  if (Object.prototype.toString.call(iterable) !== '[object Array]') {
+    return this.reject(new TypeError('must be an array'));
+  }
+
+  var len = iterable.length;
+  var called = false;
+  if (!len) {
+    return this.resolve([]);
+  }
+
+  var i = -1;
+  var promise = new this(INTERNAL);
+
+  while (++i < len) {
+    resolver(iterable[i]);
+  }
+  return promise;
+  function resolver(value) {
+    self.resolve(value).then(function (response) {
+      if (!called) {
+        called = true;
+        handlers.resolve(promise, response);
+      }
+    }, function (error) {
+      if (!called) {
+        called = true;
+        handlers.reject(promise, error);
+      }
+    });
+  }
+}
+
+},{"2":2}],2:[function(_dereq_,module,exports){
+(function (global){
+'use strict';
+var Mutation = global.MutationObserver || global.WebKitMutationObserver;
+
+var scheduleDrain;
+
+{
+  if (Mutation) {
+    var called = 0;
+    var observer = new Mutation(nextTick);
+    var element = global.document.createTextNode('');
+    observer.observe(element, {
+      characterData: true
+    });
+    scheduleDrain = function () {
+      element.data = (called = ++called % 2);
+    };
+  } else if (!global.setImmediate && typeof global.MessageChannel !== 'undefined') {
+    var channel = new global.MessageChannel();
+    channel.port1.onmessage = nextTick;
+    scheduleDrain = function () {
+      channel.port2.postMessage(0);
+    };
+  } else if ('document' in global && 'onreadystatechange' in global.document.createElement('script')) {
+    scheduleDrain = function () {
+
+      // Create a <script> element; its readystatechange event will be fired asynchronously once it is inserted
+      // into the document. Do so, thus queuing up the task. Remember to clean up once it's been called.
+      var scriptEl = global.document.createElement('script');
+      scriptEl.onreadystatechange = function () {
+        nextTick();
+
+        scriptEl.onreadystatechange = null;
+        scriptEl.parentNode.removeChild(scriptEl);
+        scriptEl = null;
+      };
+      global.document.documentElement.appendChild(scriptEl);
+    };
+  } else {
+    scheduleDrain = function () {
+      setTimeout(nextTick, 0);
+    };
+  }
+}
+
+var draining;
+var queue = [];
+//named nextTick for less confusing stack traces
+function nextTick() {
+  draining = true;
+  var i, oldQueue;
+  var len = queue.length;
+  while (len) {
+    oldQueue = queue;
+    queue = [];
+    i = -1;
+    while (++i < len) {
+      oldQueue[i]();
+    }
+    len = queue.length;
+  }
+  draining = false;
+}
+
+module.exports = immediate;
+function immediate(task) {
+  if (queue.push(task) === 1 && !draining) {
+    scheduleDrain();
+  }
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],3:[function(_dereq_,module,exports){
+(function (global){
+'use strict';
+if (typeof global.Promise !== 'function') {
+  global.Promise = _dereq_(1);
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"1":1}],4:[function(_dereq_,module,exports){
+'use strict';
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function getIDB() {
+    /* global indexedDB,webkitIndexedDB,mozIndexedDB,OIndexedDB,msIndexedDB */
+    try {
+        if (typeof indexedDB !== 'undefined') {
+            return indexedDB;
+        }
+        if (typeof webkitIndexedDB !== 'undefined') {
+            return webkitIndexedDB;
+        }
+        if (typeof mozIndexedDB !== 'undefined') {
+            return mozIndexedDB;
+        }
+        if (typeof OIndexedDB !== 'undefined') {
+            return OIndexedDB;
+        }
+        if (typeof msIndexedDB !== 'undefined') {
+            return msIndexedDB;
+        }
+    } catch (e) {}
+}
+
+var idb = getIDB();
+
+function isIndexedDBValid() {
+    try {
+        // Initialize IndexedDB; fall back to vendor-prefixed versions
+        // if needed.
+        if (!idb) {
+            return false;
+        }
+        // We mimic PouchDB here; just UA test for Safari (which, as of
+        // iOS 8/Yosemite, doesn't properly support IndexedDB).
+        // IndexedDB support is broken and different from Blink's.
+        // This is faster than the test case (and it's sync), so we just
+        // do this. *SIGH*
+        // http://bl.ocks.org/nolanlawson/raw/c83e9039edf2278047e9/
+        //
+        // We test for openDatabase because IE Mobile identifies itself
+        // as Safari. Oh the lulz...
+        if (typeof openDatabase !== 'undefined' && typeof navigator !== 'undefined' && navigator.userAgent && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)) {
+            return false;
+        }
+
+        return idb && typeof idb.open === 'function' &&
+        // Some Samsung/HTC Android 4.0-4.3 devices
+        // have older IndexedDB specs; if this isn't available
+        // their IndexedDB is too old for us to use.
+        // (Replaces the onupgradeneeded test.)
+        typeof IDBKeyRange !== 'undefined';
+    } catch (e) {
+        return false;
+    }
+}
+
+function isWebSQLValid() {
+    return typeof openDatabase === 'function';
+}
+
+function isLocalStorageValid() {
+    try {
+        return typeof localStorage !== 'undefined' && 'setItem' in localStorage && localStorage.setItem;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Abstracts constructing a Blob object, so it also works in older
+// browsers that don't support the native Blob constructor. (i.e.
+// old QtWebKit versions, at least).
+// Abstracts constructing a Blob object, so it also works in older
+// browsers that don't support the native Blob constructor. (i.e.
+// old QtWebKit versions, at least).
+function createBlob(parts, properties) {
+    /* global BlobBuilder,MSBlobBuilder,MozBlobBuilder,WebKitBlobBuilder */
+    parts = parts || [];
+    properties = properties || {};
+    try {
+        return new Blob(parts, properties);
+    } catch (e) {
+        if (e.name !== 'TypeError') {
+            throw e;
+        }
+        var Builder = typeof BlobBuilder !== 'undefined' ? BlobBuilder : typeof MSBlobBuilder !== 'undefined' ? MSBlobBuilder : typeof MozBlobBuilder !== 'undefined' ? MozBlobBuilder : WebKitBlobBuilder;
+        var builder = new Builder();
+        for (var i = 0; i < parts.length; i += 1) {
+            builder.append(parts[i]);
+        }
+        return builder.getBlob(properties.type);
+    }
+}
+
+// This is CommonJS because lie is an external dependency, so Rollup
+// can just ignore it.
+if (typeof Promise === 'undefined' && typeof _dereq_ !== 'undefined') {
+    _dereq_(3);
+}
+var Promise$1 = Promise;
+
+function executeCallback(promise, callback) {
+    if (callback) {
+        promise.then(function (result) {
+            callback(null, result);
+        }, function (error) {
+            callback(error);
+        });
+    }
+}
+
+function executeTwoCallbacks(promise, callback, errorCallback) {
+    if (typeof callback === 'function') {
+        promise.then(callback);
+    }
+
+    if (typeof errorCallback === 'function') {
+        promise["catch"](errorCallback);
+    }
+}
+
+// Some code originally from async_storage.js in
+// [Gaia](https://github.com/mozilla-b2g/gaia).
+
+var DETECT_BLOB_SUPPORT_STORE = 'local-forage-detect-blob-support';
+var supportsBlobs;
+var dbContexts;
+var toString = Object.prototype.toString;
+
+// Transform a binary string to an array buffer, because otherwise
+// weird stuff happens when you try to work with the binary string directly.
+// It is known.
+// From http://stackoverflow.com/questions/14967647/ (continues on next line)
+// encode-decode-image-with-base64-breaks-image (2013-04-21)
+function _binStringToArrayBuffer(bin) {
+    var length = bin.length;
+    var buf = new ArrayBuffer(length);
+    var arr = new Uint8Array(buf);
+    for (var i = 0; i < length; i++) {
+        arr[i] = bin.charCodeAt(i);
+    }
+    return buf;
+}
+
+//
+// Blobs are not supported in all versions of IndexedDB, notably
+// Chrome <37 and Android <5. In those versions, storing a blob will throw.
+//
+// Various other blob bugs exist in Chrome v37-42 (inclusive).
+// Detecting them is expensive and confusing to users, and Chrome 37-42
+// is at very low usage worldwide, so we do a hacky userAgent check instead.
+//
+// content-type bug: https://code.google.com/p/chromium/issues/detail?id=408120
+// 404 bug: https://code.google.com/p/chromium/issues/detail?id=447916
+// FileReader bug: https://code.google.com/p/chromium/issues/detail?id=447836
+//
+// Code borrowed from PouchDB. See:
+// https://github.com/pouchdb/pouchdb/blob/9c25a23/src/adapters/idb/blobSupport.js
+//
+function _checkBlobSupportWithoutCaching(txn) {
+    return new Promise$1(function (resolve) {
+        var blob = createBlob(['']);
+        txn.objectStore(DETECT_BLOB_SUPPORT_STORE).put(blob, 'key');
+
+        txn.onabort = function (e) {
+            // If the transaction aborts now its due to not being able to
+            // write to the database, likely due to the disk being full
+            e.preventDefault();
+            e.stopPropagation();
+            resolve(false);
+        };
+
+        txn.oncomplete = function () {
+            var matchedChrome = navigator.userAgent.match(/Chrome\/(\d+)/);
+            var matchedEdge = navigator.userAgent.match(/Edge\//);
+            // MS Edge pretends to be Chrome 42:
+            // https://msdn.microsoft.com/en-us/library/hh869301%28v=vs.85%29.aspx
+            resolve(matchedEdge || !matchedChrome || parseInt(matchedChrome[1], 10) >= 43);
+        };
+    })["catch"](function () {
+        return false; // error, so assume unsupported
+    });
+}
+
+function _checkBlobSupport(idb) {
+    if (typeof supportsBlobs === 'boolean') {
+        return Promise$1.resolve(supportsBlobs);
+    }
+    return _checkBlobSupportWithoutCaching(idb).then(function (value) {
+        supportsBlobs = value;
+        return supportsBlobs;
+    });
+}
+
+function _deferReadiness(dbInfo) {
+    var dbContext = dbContexts[dbInfo.name];
+
+    // Create a deferred object representing the current database operation.
+    var deferredOperation = {};
+
+    deferredOperation.promise = new Promise$1(function (resolve) {
+        deferredOperation.resolve = resolve;
+    });
+
+    // Enqueue the deferred operation.
+    dbContext.deferredOperations.push(deferredOperation);
+
+    // Chain its promise to the database readiness.
+    if (!dbContext.dbReady) {
+        dbContext.dbReady = deferredOperation.promise;
+    } else {
+        dbContext.dbReady = dbContext.dbReady.then(function () {
+            return deferredOperation.promise;
+        });
+    }
+}
+
+function _advanceReadiness(dbInfo) {
+    var dbContext = dbContexts[dbInfo.name];
+
+    // Dequeue a deferred operation.
+    var deferredOperation = dbContext.deferredOperations.pop();
+
+    // Resolve its promise (which is part of the database readiness
+    // chain of promises).
+    if (deferredOperation) {
+        deferredOperation.resolve();
+    }
+}
+
+function _getConnection(dbInfo, upgradeNeeded) {
+    return new Promise$1(function (resolve, reject) {
+
+        if (dbInfo.db) {
+            if (upgradeNeeded) {
+                _deferReadiness(dbInfo);
+                dbInfo.db.close();
+            } else {
+                return resolve(dbInfo.db);
+            }
+        }
+
+        var dbArgs = [dbInfo.name];
+
+        if (upgradeNeeded) {
+            dbArgs.push(dbInfo.version);
+        }
+
+        var openreq = idb.open.apply(idb, dbArgs);
+
+        if (upgradeNeeded) {
+            openreq.onupgradeneeded = function (e) {
+                var db = openreq.result;
+                try {
+                    db.createObjectStore(dbInfo.storeName);
+                    if (e.oldVersion <= 1) {
+                        // Added when support for blob shims was added
+                        db.createObjectStore(DETECT_BLOB_SUPPORT_STORE);
+                    }
+                } catch (ex) {
+                    if (ex.name === 'ConstraintError') {
+                        console.warn('The database "' + dbInfo.name + '"' + ' has been upgraded from version ' + e.oldVersion + ' to version ' + e.newVersion + ', but the storage "' + dbInfo.storeName + '" already exists.');
+                    } else {
+                        throw ex;
+                    }
+                }
+            };
+        }
+
+        openreq.onerror = function () {
+            reject(openreq.error);
+        };
+
+        openreq.onsuccess = function () {
+            resolve(openreq.result);
+            _advanceReadiness(dbInfo);
+        };
+    });
+}
+
+function _getOriginalConnection(dbInfo) {
+    return _getConnection(dbInfo, false);
+}
+
+function _getUpgradedConnection(dbInfo) {
+    return _getConnection(dbInfo, true);
+}
+
+function _isUpgradeNeeded(dbInfo, defaultVersion) {
+    if (!dbInfo.db) {
+        return true;
+    }
+
+    var isNewStore = !dbInfo.db.objectStoreNames.contains(dbInfo.storeName);
+    var isDowngrade = dbInfo.version < dbInfo.db.version;
+    var isUpgrade = dbInfo.version > dbInfo.db.version;
+
+    if (isDowngrade) {
+        // If the version is not the default one
+        // then warn for impossible downgrade.
+        if (dbInfo.version !== defaultVersion) {
+            console.warn('The database "' + dbInfo.name + '"' + ' can\'t be downgraded from version ' + dbInfo.db.version + ' to version ' + dbInfo.version + '.');
+        }
+        // Align the versions to prevent errors.
+        dbInfo.version = dbInfo.db.version;
+    }
+
+    if (isUpgrade || isNewStore) {
+        // If the store is new then increment the version (if needed).
+        // This will trigger an "upgradeneeded" event which is required
+        // for creating a store.
+        if (isNewStore) {
+            var incVersion = dbInfo.db.version + 1;
+            if (incVersion > dbInfo.version) {
+                dbInfo.version = incVersion;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+// encode a blob for indexeddb engines that don't support blobs
+function _encodeBlob(blob) {
+    return new Promise$1(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onerror = reject;
+        reader.onloadend = function (e) {
+            var base64 = btoa(e.target.result || '');
+            resolve({
+                __local_forage_encoded_blob: true,
+                data: base64,
+                type: blob.type
+            });
+        };
+        reader.readAsBinaryString(blob);
+    });
+}
+
+// decode an encoded blob
+function _decodeBlob(encodedBlob) {
+    var arrayBuff = _binStringToArrayBuffer(atob(encodedBlob.data));
+    return createBlob([arrayBuff], { type: encodedBlob.type });
+}
+
+// is this one of our fancy encoded blobs?
+function _isEncodedBlob(value) {
+    return value && value.__local_forage_encoded_blob;
+}
+
+// Specialize the default `ready()` function by making it dependent
+// on the current database operations. Thus, the driver will be actually
+// ready when it's been initialized (default) *and* there are no pending
+// operations on the database (initiated by some other instances).
+function _fullyReady(callback) {
+    var self = this;
+
+    var promise = self._initReady().then(function () {
+        var dbContext = dbContexts[self._dbInfo.name];
+
+        if (dbContext && dbContext.dbReady) {
+            return dbContext.dbReady;
+        }
+    });
+
+    executeTwoCallbacks(promise, callback, callback);
+    return promise;
+}
+
+// Open the IndexedDB database (automatically creates one if one didn't
+// previously exist), using any options set in the config.
+function _initStorage(options) {
+    var self = this;
+    var dbInfo = {
+        db: null
+    };
+
+    if (options) {
+        for (var i in options) {
+            dbInfo[i] = options[i];
+        }
+    }
+
+    // Initialize a singleton container for all running localForages.
+    if (!dbContexts) {
+        dbContexts = {};
+    }
+
+    // Get the current context of the database;
+    var dbContext = dbContexts[dbInfo.name];
+
+    // ...or create a new context.
+    if (!dbContext) {
+        dbContext = {
+            // Running localForages sharing a database.
+            forages: [],
+            // Shared database.
+            db: null,
+            // Database readiness (promise).
+            dbReady: null,
+            // Deferred operations on the database.
+            deferredOperations: []
+        };
+        // Register the new context in the global container.
+        dbContexts[dbInfo.name] = dbContext;
+    }
+
+    // Register itself as a running localForage in the current context.
+    dbContext.forages.push(self);
+
+    // Replace the default `ready()` function with the specialized one.
+    if (!self._initReady) {
+        self._initReady = self.ready;
+        self.ready = _fullyReady;
+    }
+
+    // Create an array of initialization states of the related localForages.
+    var initPromises = [];
+
+    function ignoreErrors() {
+        // Don't handle errors here,
+        // just makes sure related localForages aren't pending.
+        return Promise$1.resolve();
+    }
+
+    for (var j = 0; j < dbContext.forages.length; j++) {
+        var forage = dbContext.forages[j];
+        if (forage !== self) {
+            // Don't wait for itself...
+            initPromises.push(forage._initReady()["catch"](ignoreErrors));
+        }
+    }
+
+    // Take a snapshot of the related localForages.
+    var forages = dbContext.forages.slice(0);
+
+    // Initialize the connection process only when
+    // all the related localForages aren't pending.
+    return Promise$1.all(initPromises).then(function () {
+        dbInfo.db = dbContext.db;
+        // Get the connection or open a new one without upgrade.
+        return _getOriginalConnection(dbInfo);
+    }).then(function (db) {
+        dbInfo.db = db;
+        if (_isUpgradeNeeded(dbInfo, self._defaultConfig.version)) {
+            // Reopen the database for upgrading.
+            return _getUpgradedConnection(dbInfo);
+        }
+        return db;
+    }).then(function (db) {
+        dbInfo.db = dbContext.db = db;
+        self._dbInfo = dbInfo;
+        // Share the final connection amongst related localForages.
+        for (var k = 0; k < forages.length; k++) {
+            var forage = forages[k];
+            if (forage !== self) {
+                // Self is already up-to-date.
+                forage._dbInfo.db = dbInfo.db;
+                forage._dbInfo.version = dbInfo.version;
+            }
+        }
+    });
+}
+
+function getItem(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var store = dbInfo.db.transaction(dbInfo.storeName, 'readonly').objectStore(dbInfo.storeName);
+            var req = store.get(key);
+
+            req.onsuccess = function () {
+                var value = req.result;
+                if (value === undefined) {
+                    value = null;
+                }
+                if (_isEncodedBlob(value)) {
+                    value = _decodeBlob(value);
+                }
+                resolve(value);
+            };
+
+            req.onerror = function () {
+                reject(req.error);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Iterate over all items stored in database.
+function iterate(iterator, callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var store = dbInfo.db.transaction(dbInfo.storeName, 'readonly').objectStore(dbInfo.storeName);
+
+            var req = store.openCursor();
+            var iterationNumber = 1;
+
+            req.onsuccess = function () {
+                var cursor = req.result;
+
+                if (cursor) {
+                    var value = cursor.value;
+                    if (_isEncodedBlob(value)) {
+                        value = _decodeBlob(value);
+                    }
+                    var result = iterator(value, cursor.key, iterationNumber++);
+
+                    if (result !== void 0) {
+                        resolve(result);
+                    } else {
+                        cursor["continue"]();
+                    }
+                } else {
+                    resolve();
+                }
+            };
+
+            req.onerror = function () {
+                reject(req.error);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+
+    return promise;
+}
+
+function setItem(key, value, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        var dbInfo;
+        self.ready().then(function () {
+            dbInfo = self._dbInfo;
+            if (toString.call(value) === '[object Blob]') {
+                return _checkBlobSupport(dbInfo.db).then(function (blobSupport) {
+                    if (blobSupport) {
+                        return value;
+                    }
+                    return _encodeBlob(value);
+                });
+            }
+            return value;
+        }).then(function (value) {
+            var transaction = dbInfo.db.transaction(dbInfo.storeName, 'readwrite');
+            var store = transaction.objectStore(dbInfo.storeName);
+
+            // The reason we don't _save_ null is because IE 10 does
+            // not support saving the `null` type in IndexedDB. How
+            // ironic, given the bug below!
+            // See: https://github.com/mozilla/localForage/issues/161
+            if (value === null) {
+                value = undefined;
+            }
+
+            transaction.oncomplete = function () {
+                // Cast to undefined so the value passed to
+                // callback/promise is the same as what one would get out
+                // of `getItem()` later. This leads to some weirdness
+                // (setItem('foo', undefined) will return `null`), but
+                // it's not my fault localStorage is our baseline and that
+                // it's weird.
+                if (value === undefined) {
+                    value = null;
+                }
+
+                resolve(value);
+            };
+            transaction.onabort = transaction.onerror = function () {
+                var err = req.error ? req.error : req.transaction.error;
+                reject(err);
+            };
+
+            var req = store.put(value, key);
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function removeItem(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var transaction = dbInfo.db.transaction(dbInfo.storeName, 'readwrite');
+            var store = transaction.objectStore(dbInfo.storeName);
+
+            // We use a Grunt task to make this safe for IE and some
+            // versions of Android (including those used by Cordova).
+            // Normally IE won't like `.delete()` and will insist on
+            // using `['delete']()`, but we have a build step that
+            // fixes this for us now.
+            var req = store["delete"](key);
+            transaction.oncomplete = function () {
+                resolve();
+            };
+
+            transaction.onerror = function () {
+                reject(req.error);
+            };
+
+            // The request will be also be aborted if we've exceeded our storage
+            // space.
+            transaction.onabort = function () {
+                var err = req.error ? req.error : req.transaction.error;
+                reject(err);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function clear(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var transaction = dbInfo.db.transaction(dbInfo.storeName, 'readwrite');
+            var store = transaction.objectStore(dbInfo.storeName);
+            var req = store.clear();
+
+            transaction.oncomplete = function () {
+                resolve();
+            };
+
+            transaction.onabort = transaction.onerror = function () {
+                var err = req.error ? req.error : req.transaction.error;
+                reject(err);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function length(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var store = dbInfo.db.transaction(dbInfo.storeName, 'readonly').objectStore(dbInfo.storeName);
+            var req = store.count();
+
+            req.onsuccess = function () {
+                resolve(req.result);
+            };
+
+            req.onerror = function () {
+                reject(req.error);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function key(n, callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        if (n < 0) {
+            resolve(null);
+
+            return;
+        }
+
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var store = dbInfo.db.transaction(dbInfo.storeName, 'readonly').objectStore(dbInfo.storeName);
+
+            var advanced = false;
+            var req = store.openCursor();
+            req.onsuccess = function () {
+                var cursor = req.result;
+                if (!cursor) {
+                    // this means there weren't enough keys
+                    resolve(null);
+
+                    return;
+                }
+
+                if (n === 0) {
+                    // We have the first key, return it if that's what they
+                    // wanted.
+                    resolve(cursor.key);
+                } else {
+                    if (!advanced) {
+                        // Otherwise, ask the cursor to skip ahead n
+                        // records.
+                        advanced = true;
+                        cursor.advance(n);
+                    } else {
+                        // When we get here, we've got the nth key.
+                        resolve(cursor.key);
+                    }
+                }
+            };
+
+            req.onerror = function () {
+                reject(req.error);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function keys(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            var store = dbInfo.db.transaction(dbInfo.storeName, 'readonly').objectStore(dbInfo.storeName);
+
+            var req = store.openCursor();
+            var keys = [];
+
+            req.onsuccess = function () {
+                var cursor = req.result;
+
+                if (!cursor) {
+                    resolve(keys);
+                    return;
+                }
+
+                keys.push(cursor.key);
+                cursor["continue"]();
+            };
+
+            req.onerror = function () {
+                reject(req.error);
+            };
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+var asyncStorage = {
+    _driver: 'asyncStorage',
+    _initStorage: _initStorage,
+    iterate: iterate,
+    getItem: getItem,
+    setItem: setItem,
+    removeItem: removeItem,
+    clear: clear,
+    length: length,
+    key: key,
+    keys: keys
+};
+
+// Sadly, the best way to save binary data in WebSQL/localStorage is serializing
+// it to Base64, so this is how we store it to prevent very strange errors with less
+// verbose ways of binary <-> string data storage.
+var BASE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+var BLOB_TYPE_PREFIX = '~~local_forage_type~';
+var BLOB_TYPE_PREFIX_REGEX = /^~~local_forage_type~([^~]+)~/;
+
+var SERIALIZED_MARKER = '__lfsc__:';
+var SERIALIZED_MARKER_LENGTH = SERIALIZED_MARKER.length;
+
+// OMG the serializations!
+var TYPE_ARRAYBUFFER = 'arbf';
+var TYPE_BLOB = 'blob';
+var TYPE_INT8ARRAY = 'si08';
+var TYPE_UINT8ARRAY = 'ui08';
+var TYPE_UINT8CLAMPEDARRAY = 'uic8';
+var TYPE_INT16ARRAY = 'si16';
+var TYPE_INT32ARRAY = 'si32';
+var TYPE_UINT16ARRAY = 'ur16';
+var TYPE_UINT32ARRAY = 'ui32';
+var TYPE_FLOAT32ARRAY = 'fl32';
+var TYPE_FLOAT64ARRAY = 'fl64';
+var TYPE_SERIALIZED_MARKER_LENGTH = SERIALIZED_MARKER_LENGTH + TYPE_ARRAYBUFFER.length;
+
+var toString$1 = Object.prototype.toString;
+
+function stringToBuffer(serializedString) {
+    // Fill the string into a ArrayBuffer.
+    var bufferLength = serializedString.length * 0.75;
+    var len = serializedString.length;
+    var i;
+    var p = 0;
+    var encoded1, encoded2, encoded3, encoded4;
+
+    if (serializedString[serializedString.length - 1] === '=') {
+        bufferLength--;
+        if (serializedString[serializedString.length - 2] === '=') {
+            bufferLength--;
+        }
+    }
+
+    var buffer = new ArrayBuffer(bufferLength);
+    var bytes = new Uint8Array(buffer);
+
+    for (i = 0; i < len; i += 4) {
+        encoded1 = BASE_CHARS.indexOf(serializedString[i]);
+        encoded2 = BASE_CHARS.indexOf(serializedString[i + 1]);
+        encoded3 = BASE_CHARS.indexOf(serializedString[i + 2]);
+        encoded4 = BASE_CHARS.indexOf(serializedString[i + 3]);
+
+        /*jslint bitwise: true */
+        bytes[p++] = encoded1 << 2 | encoded2 >> 4;
+        bytes[p++] = (encoded2 & 15) << 4 | encoded3 >> 2;
+        bytes[p++] = (encoded3 & 3) << 6 | encoded4 & 63;
+    }
+    return buffer;
+}
+
+// Converts a buffer to a string to store, serialized, in the backend
+// storage library.
+function bufferToString(buffer) {
+    // base64-arraybuffer
+    var bytes = new Uint8Array(buffer);
+    var base64String = '';
+    var i;
+
+    for (i = 0; i < bytes.length; i += 3) {
+        /*jslint bitwise: true */
+        base64String += BASE_CHARS[bytes[i] >> 2];
+        base64String += BASE_CHARS[(bytes[i] & 3) << 4 | bytes[i + 1] >> 4];
+        base64String += BASE_CHARS[(bytes[i + 1] & 15) << 2 | bytes[i + 2] >> 6];
+        base64String += BASE_CHARS[bytes[i + 2] & 63];
+    }
+
+    if (bytes.length % 3 === 2) {
+        base64String = base64String.substring(0, base64String.length - 1) + '=';
+    } else if (bytes.length % 3 === 1) {
+        base64String = base64String.substring(0, base64String.length - 2) + '==';
+    }
+
+    return base64String;
+}
+
+// Serialize a value, afterwards executing a callback (which usually
+// instructs the `setItem()` callback/promise to be executed). This is how
+// we store binary data with localStorage.
+function serialize(value, callback) {
+    var valueType = '';
+    if (value) {
+        valueType = toString$1.call(value);
+    }
+
+    // Cannot use `value instanceof ArrayBuffer` or such here, as these
+    // checks fail when running the tests using casper.js...
+    //
+    // TODO: See why those tests fail and use a better solution.
+    if (value && (valueType === '[object ArrayBuffer]' || value.buffer && toString$1.call(value.buffer) === '[object ArrayBuffer]')) {
+        // Convert binary arrays to a string and prefix the string with
+        // a special marker.
+        var buffer;
+        var marker = SERIALIZED_MARKER;
+
+        if (value instanceof ArrayBuffer) {
+            buffer = value;
+            marker += TYPE_ARRAYBUFFER;
+        } else {
+            buffer = value.buffer;
+
+            if (valueType === '[object Int8Array]') {
+                marker += TYPE_INT8ARRAY;
+            } else if (valueType === '[object Uint8Array]') {
+                marker += TYPE_UINT8ARRAY;
+            } else if (valueType === '[object Uint8ClampedArray]') {
+                marker += TYPE_UINT8CLAMPEDARRAY;
+            } else if (valueType === '[object Int16Array]') {
+                marker += TYPE_INT16ARRAY;
+            } else if (valueType === '[object Uint16Array]') {
+                marker += TYPE_UINT16ARRAY;
+            } else if (valueType === '[object Int32Array]') {
+                marker += TYPE_INT32ARRAY;
+            } else if (valueType === '[object Uint32Array]') {
+                marker += TYPE_UINT32ARRAY;
+            } else if (valueType === '[object Float32Array]') {
+                marker += TYPE_FLOAT32ARRAY;
+            } else if (valueType === '[object Float64Array]') {
+                marker += TYPE_FLOAT64ARRAY;
+            } else {
+                callback(new Error('Failed to get type for BinaryArray'));
+            }
+        }
+
+        callback(marker + bufferToString(buffer));
+    } else if (valueType === '[object Blob]') {
+        // Conver the blob to a binaryArray and then to a string.
+        var fileReader = new FileReader();
+
+        fileReader.onload = function () {
+            // Backwards-compatible prefix for the blob type.
+            var str = BLOB_TYPE_PREFIX + value.type + '~' + bufferToString(this.result);
+
+            callback(SERIALIZED_MARKER + TYPE_BLOB + str);
+        };
+
+        fileReader.readAsArrayBuffer(value);
+    } else {
+        try {
+            callback(JSON.stringify(value));
+        } catch (e) {
+            console.error("Couldn't convert value into a JSON string: ", value);
+
+            callback(null, e);
+        }
+    }
+}
+
+// Deserialize data we've inserted into a value column/field. We place
+// special markers into our strings to mark them as encoded; this isn't
+// as nice as a meta field, but it's the only sane thing we can do whilst
+// keeping localStorage support intact.
+//
+// Oftentimes this will just deserialize JSON content, but if we have a
+// special marker (SERIALIZED_MARKER, defined above), we will extract
+// some kind of arraybuffer/binary data/typed array out of the string.
+function deserialize(value) {
+    // If we haven't marked this string as being specially serialized (i.e.
+    // something other than serialized JSON), we can just return it and be
+    // done with it.
+    if (value.substring(0, SERIALIZED_MARKER_LENGTH) !== SERIALIZED_MARKER) {
+        return JSON.parse(value);
+    }
+
+    // The following code deals with deserializing some kind of Blob or
+    // TypedArray. First we separate out the type of data we're dealing
+    // with from the data itself.
+    var serializedString = value.substring(TYPE_SERIALIZED_MARKER_LENGTH);
+    var type = value.substring(SERIALIZED_MARKER_LENGTH, TYPE_SERIALIZED_MARKER_LENGTH);
+
+    var blobType;
+    // Backwards-compatible blob type serialization strategy.
+    // DBs created with older versions of localForage will simply not have the blob type.
+    if (type === TYPE_BLOB && BLOB_TYPE_PREFIX_REGEX.test(serializedString)) {
+        var matcher = serializedString.match(BLOB_TYPE_PREFIX_REGEX);
+        blobType = matcher[1];
+        serializedString = serializedString.substring(matcher[0].length);
+    }
+    var buffer = stringToBuffer(serializedString);
+
+    // Return the right type based on the code/type set during
+    // serialization.
+    switch (type) {
+        case TYPE_ARRAYBUFFER:
+            return buffer;
+        case TYPE_BLOB:
+            return createBlob([buffer], { type: blobType });
+        case TYPE_INT8ARRAY:
+            return new Int8Array(buffer);
+        case TYPE_UINT8ARRAY:
+            return new Uint8Array(buffer);
+        case TYPE_UINT8CLAMPEDARRAY:
+            return new Uint8ClampedArray(buffer);
+        case TYPE_INT16ARRAY:
+            return new Int16Array(buffer);
+        case TYPE_UINT16ARRAY:
+            return new Uint16Array(buffer);
+        case TYPE_INT32ARRAY:
+            return new Int32Array(buffer);
+        case TYPE_UINT32ARRAY:
+            return new Uint32Array(buffer);
+        case TYPE_FLOAT32ARRAY:
+            return new Float32Array(buffer);
+        case TYPE_FLOAT64ARRAY:
+            return new Float64Array(buffer);
+        default:
+            throw new Error('Unkown type: ' + type);
+    }
+}
+
+var localforageSerializer = {
+    serialize: serialize,
+    deserialize: deserialize,
+    stringToBuffer: stringToBuffer,
+    bufferToString: bufferToString
+};
+
+/*
+ * Includes code from:
+ *
+ * base64-arraybuffer
+ * https://github.com/niklasvh/base64-arraybuffer
+ *
+ * Copyright (c) 2012 Niklas von Hertzen
+ * Licensed under the MIT license.
+ */
+// Open the WebSQL database (automatically creates one if one didn't
+// previously exist), using any options set in the config.
+function _initStorage$1(options) {
+    var self = this;
+    var dbInfo = {
+        db: null
+    };
+
+    if (options) {
+        for (var i in options) {
+            dbInfo[i] = typeof options[i] !== 'string' ? options[i].toString() : options[i];
+        }
+    }
+
+    var dbInfoPromise = new Promise$1(function (resolve, reject) {
+        // Open the database; the openDatabase API will automatically
+        // create it for us if it doesn't exist.
+        try {
+            dbInfo.db = openDatabase(dbInfo.name, String(dbInfo.version), dbInfo.description, dbInfo.size);
+        } catch (e) {
+            return reject(e);
+        }
+
+        // Create our key/value table if it doesn't exist.
+        dbInfo.db.transaction(function (t) {
+            t.executeSql('CREATE TABLE IF NOT EXISTS ' + dbInfo.storeName + ' (id INTEGER PRIMARY KEY, key unique, value)', [], function () {
+                self._dbInfo = dbInfo;
+                resolve();
+            }, function (t, error) {
+                reject(error);
+            });
+        });
+    });
+
+    dbInfo.serializer = localforageSerializer;
+    return dbInfoPromise;
+}
+
+function getItem$1(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('SELECT * FROM ' + dbInfo.storeName + ' WHERE key = ? LIMIT 1', [key], function (t, results) {
+                    var result = results.rows.length ? results.rows.item(0).value : null;
+
+                    // Check to see if this is serialized content we need to
+                    // unpack.
+                    if (result) {
+                        result = dbInfo.serializer.deserialize(result);
+                    }
+
+                    resolve(result);
+                }, function (t, error) {
+
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function iterate$1(iterator, callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('SELECT * FROM ' + dbInfo.storeName, [], function (t, results) {
+                    var rows = results.rows;
+                    var length = rows.length;
+
+                    for (var i = 0; i < length; i++) {
+                        var item = rows.item(i);
+                        var result = item.value;
+
+                        // Check to see if this is serialized content
+                        // we need to unpack.
+                        if (result) {
+                            result = dbInfo.serializer.deserialize(result);
+                        }
+
+                        result = iterator(result, item.key, i + 1);
+
+                        // void(0) prevents problems with redefinition
+                        // of `undefined`.
+                        if (result !== void 0) {
+                            resolve(result);
+                            return;
+                        }
+                    }
+
+                    resolve();
+                }, function (t, error) {
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function setItem$1(key, value, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            // The localStorage API doesn't return undefined values in an
+            // "expected" way, so undefined is always cast to null in all
+            // drivers. See: https://github.com/mozilla/localForage/pull/42
+            if (value === undefined) {
+                value = null;
+            }
+
+            // Save the original value to pass to the callback.
+            var originalValue = value;
+
+            var dbInfo = self._dbInfo;
+            dbInfo.serializer.serialize(value, function (value, error) {
+                if (error) {
+                    reject(error);
+                } else {
+                    dbInfo.db.transaction(function (t) {
+                        t.executeSql('INSERT OR REPLACE INTO ' + dbInfo.storeName + ' (key, value) VALUES (?, ?)', [key, value], function () {
+                            resolve(originalValue);
+                        }, function (t, error) {
+                            reject(error);
+                        });
+                    }, function (sqlError) {
+                        // The transaction failed; check
+                        // to see if it's a quota error.
+                        if (sqlError.code === sqlError.QUOTA_ERR) {
+                            // We reject the callback outright for now, but
+                            // it's worth trying to re-run the transaction.
+                            // Even if the user accepts the prompt to use
+                            // more storage on Safari, this error will
+                            // be called.
+                            //
+                            // TODO: Try to re-run the transaction.
+                            reject(sqlError);
+                        }
+                    });
+                }
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function removeItem$1(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('DELETE FROM ' + dbInfo.storeName + ' WHERE key = ?', [key], function () {
+                    resolve();
+                }, function (t, error) {
+
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Deletes every item in the table.
+// TODO: Find out if this resets the AUTO_INCREMENT number.
+function clear$1(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('DELETE FROM ' + dbInfo.storeName, [], function () {
+                    resolve();
+                }, function (t, error) {
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Does a simple `COUNT(key)` to get the number of items stored in
+// localForage.
+function length$1(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                // Ahhh, SQL makes this one soooooo easy.
+                t.executeSql('SELECT COUNT(key) as c FROM ' + dbInfo.storeName, [], function (t, results) {
+                    var result = results.rows.item(0).c;
+
+                    resolve(result);
+                }, function (t, error) {
+
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Return the key located at key index X; essentially gets the key from a
+// `WHERE id = ?`. This is the most efficient way I can think to implement
+// this rarely-used (in my experience) part of the API, but it can seem
+// inconsistent, because we do `INSERT OR REPLACE INTO` on `setItem()`, so
+// the ID of each key will change every time it's updated. Perhaps a stored
+// procedure for the `setItem()` SQL would solve this problem?
+// TODO: Don't change ID on `setItem()`.
+function key$1(n, callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('SELECT key FROM ' + dbInfo.storeName + ' WHERE id = ? LIMIT 1', [n + 1], function (t, results) {
+                    var result = results.rows.length ? results.rows.item(0).key : null;
+                    resolve(result);
+                }, function (t, error) {
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function keys$1(callback) {
+    var self = this;
+
+    var promise = new Promise$1(function (resolve, reject) {
+        self.ready().then(function () {
+            var dbInfo = self._dbInfo;
+            dbInfo.db.transaction(function (t) {
+                t.executeSql('SELECT key FROM ' + dbInfo.storeName, [], function (t, results) {
+                    var keys = [];
+
+                    for (var i = 0; i < results.rows.length; i++) {
+                        keys.push(results.rows.item(i).key);
+                    }
+
+                    resolve(keys);
+                }, function (t, error) {
+
+                    reject(error);
+                });
+            });
+        })["catch"](reject);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+var webSQLStorage = {
+    _driver: 'webSQLStorage',
+    _initStorage: _initStorage$1,
+    iterate: iterate$1,
+    getItem: getItem$1,
+    setItem: setItem$1,
+    removeItem: removeItem$1,
+    clear: clear$1,
+    length: length$1,
+    key: key$1,
+    keys: keys$1
+};
+
+// Config the localStorage backend, using options set in the config.
+function _initStorage$2(options) {
+    var self = this;
+    var dbInfo = {};
+    if (options) {
+        for (var i in options) {
+            dbInfo[i] = options[i];
+        }
+    }
+
+    dbInfo.keyPrefix = dbInfo.name + '/';
+
+    if (dbInfo.storeName !== self._defaultConfig.storeName) {
+        dbInfo.keyPrefix += dbInfo.storeName + '/';
+    }
+
+    self._dbInfo = dbInfo;
+    dbInfo.serializer = localforageSerializer;
+
+    return Promise$1.resolve();
+}
+
+// Remove all keys from the datastore, effectively destroying all data in
+// the app's key/value store!
+function clear$2(callback) {
+    var self = this;
+    var promise = self.ready().then(function () {
+        var keyPrefix = self._dbInfo.keyPrefix;
+
+        for (var i = localStorage.length - 1; i >= 0; i--) {
+            var key = localStorage.key(i);
+
+            if (key.indexOf(keyPrefix) === 0) {
+                localStorage.removeItem(key);
+            }
+        }
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Retrieve an item from the store. Unlike the original async_storage
+// library in Gaia, we don't modify return values at all. If a key's value
+// is `undefined`, we pass that value to the callback function.
+function getItem$2(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = self.ready().then(function () {
+        var dbInfo = self._dbInfo;
+        var result = localStorage.getItem(dbInfo.keyPrefix + key);
+
+        // If a result was found, parse it from the serialized
+        // string into a JS object. If result isn't truthy, the key
+        // is likely undefined and we'll pass it straight to the
+        // callback.
+        if (result) {
+            result = dbInfo.serializer.deserialize(result);
+        }
+
+        return result;
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Iterate over all items in the store.
+function iterate$2(iterator, callback) {
+    var self = this;
+
+    var promise = self.ready().then(function () {
+        var dbInfo = self._dbInfo;
+        var keyPrefix = dbInfo.keyPrefix;
+        var keyPrefixLength = keyPrefix.length;
+        var length = localStorage.length;
+
+        // We use a dedicated iterator instead of the `i` variable below
+        // so other keys we fetch in localStorage aren't counted in
+        // the `iterationNumber` argument passed to the `iterate()`
+        // callback.
+        //
+        // See: github.com/mozilla/localForage/pull/435#discussion_r38061530
+        var iterationNumber = 1;
+
+        for (var i = 0; i < length; i++) {
+            var key = localStorage.key(i);
+            if (key.indexOf(keyPrefix) !== 0) {
+                continue;
+            }
+            var value = localStorage.getItem(key);
+
+            // If a result was found, parse it from the serialized
+            // string into a JS object. If result isn't truthy, the
+            // key is likely undefined and we'll pass it straight
+            // to the iterator.
+            if (value) {
+                value = dbInfo.serializer.deserialize(value);
+            }
+
+            value = iterator(value, key.substring(keyPrefixLength), iterationNumber++);
+
+            if (value !== void 0) {
+                return value;
+            }
+        }
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Same as localStorage's key() method, except takes a callback.
+function key$2(n, callback) {
+    var self = this;
+    var promise = self.ready().then(function () {
+        var dbInfo = self._dbInfo;
+        var result;
+        try {
+            result = localStorage.key(n);
+        } catch (error) {
+            result = null;
+        }
+
+        // Remove the prefix from the key, if a key is found.
+        if (result) {
+            result = result.substring(dbInfo.keyPrefix.length);
+        }
+
+        return result;
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+function keys$2(callback) {
+    var self = this;
+    var promise = self.ready().then(function () {
+        var dbInfo = self._dbInfo;
+        var length = localStorage.length;
+        var keys = [];
+
+        for (var i = 0; i < length; i++) {
+            if (localStorage.key(i).indexOf(dbInfo.keyPrefix) === 0) {
+                keys.push(localStorage.key(i).substring(dbInfo.keyPrefix.length));
+            }
+        }
+
+        return keys;
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Supply the number of keys in the datastore to the callback function.
+function length$2(callback) {
+    var self = this;
+    var promise = self.keys().then(function (keys) {
+        return keys.length;
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Remove an item from the store, nice and simple.
+function removeItem$2(key, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = self.ready().then(function () {
+        var dbInfo = self._dbInfo;
+        localStorage.removeItem(dbInfo.keyPrefix + key);
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+// Set a key's value and run an optional callback once the value is set.
+// Unlike Gaia's implementation, the callback function is passed the value,
+// in case you want to operate on that value only after you're sure it
+// saved, or something like that.
+function setItem$2(key, value, callback) {
+    var self = this;
+
+    // Cast the key to a string, as that's all we can set as a key.
+    if (typeof key !== 'string') {
+        console.warn(key + ' used as a key, but it is not a string.');
+        key = String(key);
+    }
+
+    var promise = self.ready().then(function () {
+        // Convert undefined values to null.
+        // https://github.com/mozilla/localForage/pull/42
+        if (value === undefined) {
+            value = null;
+        }
+
+        // Save the original value to pass to the callback.
+        var originalValue = value;
+
+        return new Promise$1(function (resolve, reject) {
+            var dbInfo = self._dbInfo;
+            dbInfo.serializer.serialize(value, function (value, error) {
+                if (error) {
+                    reject(error);
+                } else {
+                    try {
+                        localStorage.setItem(dbInfo.keyPrefix + key, value);
+                        resolve(originalValue);
+                    } catch (e) {
+                        // localStorage capacity exceeded.
+                        // TODO: Make this a specific error/event.
+                        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                            reject(e);
+                        }
+                        reject(e);
+                    }
+                }
+            });
+        });
+    });
+
+    executeCallback(promise, callback);
+    return promise;
+}
+
+var localStorageWrapper = {
+    _driver: 'localStorageWrapper',
+    _initStorage: _initStorage$2,
+    // Default API, from Gaia/localStorage.
+    iterate: iterate$2,
+    getItem: getItem$2,
+    setItem: setItem$2,
+    removeItem: removeItem$2,
+    clear: clear$2,
+    length: length$2,
+    key: key$2,
+    keys: keys$2
+};
+
+// Custom drivers are stored here when `defineDriver()` is called.
+// They are shared across all instances of localForage.
+var CustomDrivers = {};
+
+var DriverType = {
+    INDEXEDDB: 'asyncStorage',
+    LOCALSTORAGE: 'localStorageWrapper',
+    WEBSQL: 'webSQLStorage'
+};
+
+var DefaultDriverOrder = [DriverType.INDEXEDDB, DriverType.WEBSQL, DriverType.LOCALSTORAGE];
+
+var LibraryMethods = ['clear', 'getItem', 'iterate', 'key', 'keys', 'length', 'removeItem', 'setItem'];
+
+var DefaultConfig = {
+    description: '',
+    driver: DefaultDriverOrder.slice(),
+    name: 'localforage',
+    // Default DB size is _JUST UNDER_ 5MB, as it's the highest size
+    // we can use without a prompt.
+    size: 4980736,
+    storeName: 'keyvaluepairs',
+    version: 1.0
+};
+
+var driverSupport = {};
+// Check to see if IndexedDB is available and if it is the latest
+// implementation; it's our preferred backend library. We use "_spec_test"
+// as the name of the database because it's not the one we'll operate on,
+// but it's useful to make sure its using the right spec.
+// See: https://github.com/mozilla/localForage/issues/128
+driverSupport[DriverType.INDEXEDDB] = isIndexedDBValid();
+
+driverSupport[DriverType.WEBSQL] = isWebSQLValid();
+
+driverSupport[DriverType.LOCALSTORAGE] = isLocalStorageValid();
+
+var isArray = Array.isArray || function (arg) {
+    return Object.prototype.toString.call(arg) === '[object Array]';
+};
+
+function callWhenReady(localForageInstance, libraryMethod) {
+    localForageInstance[libraryMethod] = function () {
+        var _args = arguments;
+        return localForageInstance.ready().then(function () {
+            return localForageInstance[libraryMethod].apply(localForageInstance, _args);
+        });
+    };
+}
+
+function extend() {
+    for (var i = 1; i < arguments.length; i++) {
+        var arg = arguments[i];
+
+        if (arg) {
+            for (var key in arg) {
+                if (arg.hasOwnProperty(key)) {
+                    if (isArray(arg[key])) {
+                        arguments[0][key] = arg[key].slice();
+                    } else {
+                        arguments[0][key] = arg[key];
+                    }
+                }
+            }
+        }
+    }
+
+    return arguments[0];
+}
+
+function isLibraryDriver(driverName) {
+    for (var driver in DriverType) {
+        if (DriverType.hasOwnProperty(driver) && DriverType[driver] === driverName) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+var LocalForage = function () {
+    function LocalForage(options) {
+        _classCallCheck(this, LocalForage);
+
+        this.INDEXEDDB = DriverType.INDEXEDDB;
+        this.LOCALSTORAGE = DriverType.LOCALSTORAGE;
+        this.WEBSQL = DriverType.WEBSQL;
+
+        this._defaultConfig = extend({}, DefaultConfig);
+        this._config = extend({}, this._defaultConfig, options);
+        this._driverSet = null;
+        this._initDriver = null;
+        this._ready = false;
+        this._dbInfo = null;
+
+        this._wrapLibraryMethodsWithReady();
+        this.setDriver(this._config.driver);
+    }
+
+    // Set any config values for localForage; can be called anytime before
+    // the first API call (e.g. `getItem`, `setItem`).
+    // We loop through options so we don't overwrite existing config
+    // values.
+
+
+    LocalForage.prototype.config = function config(options) {
+        // If the options argument is an object, we use it to set values.
+        // Otherwise, we return either a specified config value or all
+        // config values.
+        if ((typeof options === 'undefined' ? 'undefined' : _typeof(options)) === 'object') {
+            // If localforage is ready and fully initialized, we can't set
+            // any new configuration values. Instead, we return an error.
+            if (this._ready) {
+                return new Error("Can't call config() after localforage " + 'has been used.');
+            }
+
+            for (var i in options) {
+                if (i === 'storeName') {
+                    options[i] = options[i].replace(/\W/g, '_');
+                }
+
+                this._config[i] = options[i];
+            }
+
+            // after all config options are set and
+            // the driver option is used, try setting it
+            if ('driver' in options && options.driver) {
+                this.setDriver(this._config.driver);
+            }
+
+            return true;
+        } else if (typeof options === 'string') {
+            return this._config[options];
+        } else {
+            return this._config;
+        }
+    };
+
+    // Used to define a custom driver, shared across all instances of
+    // localForage.
+
+
+    LocalForage.prototype.defineDriver = function defineDriver(driverObject, callback, errorCallback) {
+        var promise = new Promise$1(function (resolve, reject) {
+            try {
+                var driverName = driverObject._driver;
+                var complianceError = new Error('Custom driver not compliant; see ' + 'https://mozilla.github.io/localForage/#definedriver');
+                var namingError = new Error('Custom driver name already in use: ' + driverObject._driver);
+
+                // A driver name should be defined and not overlap with the
+                // library-defined, default drivers.
+                if (!driverObject._driver) {
+                    reject(complianceError);
+                    return;
+                }
+                if (isLibraryDriver(driverObject._driver)) {
+                    reject(namingError);
+                    return;
+                }
+
+                var customDriverMethods = LibraryMethods.concat('_initStorage');
+                for (var i = 0; i < customDriverMethods.length; i++) {
+                    var customDriverMethod = customDriverMethods[i];
+                    if (!customDriverMethod || !driverObject[customDriverMethod] || typeof driverObject[customDriverMethod] !== 'function') {
+                        reject(complianceError);
+                        return;
+                    }
+                }
+
+                var supportPromise = Promise$1.resolve(true);
+                if ('_support' in driverObject) {
+                    if (driverObject._support && typeof driverObject._support === 'function') {
+                        supportPromise = driverObject._support();
+                    } else {
+                        supportPromise = Promise$1.resolve(!!driverObject._support);
+                    }
+                }
+
+                supportPromise.then(function (supportResult) {
+                    driverSupport[driverName] = supportResult;
+                    CustomDrivers[driverName] = driverObject;
+                    resolve();
+                }, reject);
+            } catch (e) {
+                reject(e);
+            }
+        });
+
+        executeTwoCallbacks(promise, callback, errorCallback);
+        return promise;
+    };
+
+    LocalForage.prototype.driver = function driver() {
+        return this._driver || null;
+    };
+
+    LocalForage.prototype.getDriver = function getDriver(driverName, callback, errorCallback) {
+        var self = this;
+        var getDriverPromise = Promise$1.resolve().then(function () {
+            if (isLibraryDriver(driverName)) {
+                switch (driverName) {
+                    case self.INDEXEDDB:
+                        return asyncStorage;
+                    case self.LOCALSTORAGE:
+                        return localStorageWrapper;
+                    case self.WEBSQL:
+                        return webSQLStorage;
+                }
+            } else if (CustomDrivers[driverName]) {
+                return CustomDrivers[driverName];
+            } else {
+                throw new Error('Driver not found.');
+            }
+        });
+        executeTwoCallbacks(getDriverPromise, callback, errorCallback);
+        return getDriverPromise;
+    };
+
+    LocalForage.prototype.getSerializer = function getSerializer(callback) {
+        var serializerPromise = Promise$1.resolve(localforageSerializer);
+        executeTwoCallbacks(serializerPromise, callback);
+        return serializerPromise;
+    };
+
+    LocalForage.prototype.ready = function ready(callback) {
+        var self = this;
+
+        var promise = self._driverSet.then(function () {
+            if (self._ready === null) {
+                self._ready = self._initDriver();
+            }
+
+            return self._ready;
+        });
+
+        executeTwoCallbacks(promise, callback, callback);
+        return promise;
+    };
+
+    LocalForage.prototype.setDriver = function setDriver(drivers, callback, errorCallback) {
+        var self = this;
+
+        if (!isArray(drivers)) {
+            drivers = [drivers];
+        }
+
+        var supportedDrivers = this._getSupportedDrivers(drivers);
+
+        function setDriverToConfig() {
+            self._config.driver = self.driver();
+        }
+
+        function initDriver(supportedDrivers) {
+            return function () {
+                var currentDriverIndex = 0;
+
+                function driverPromiseLoop() {
+                    while (currentDriverIndex < supportedDrivers.length) {
+                        var driverName = supportedDrivers[currentDriverIndex];
+                        currentDriverIndex++;
+
+                        self._dbInfo = null;
+                        self._ready = null;
+
+                        return self.getDriver(driverName).then(function (driver) {
+                            self._extend(driver);
+                            setDriverToConfig();
+
+                            self._ready = self._initStorage(self._config);
+                            return self._ready;
+                        })["catch"](driverPromiseLoop);
+                    }
+
+                    setDriverToConfig();
+                    var error = new Error('No available storage method found.');
+                    self._driverSet = Promise$1.reject(error);
+                    return self._driverSet;
+                }
+
+                return driverPromiseLoop();
+            };
+        }
+
+        // There might be a driver initialization in progress
+        // so wait for it to finish in order to avoid a possible
+        // race condition to set _dbInfo
+        var oldDriverSetDone = this._driverSet !== null ? this._driverSet["catch"](function () {
+            return Promise$1.resolve();
+        }) : Promise$1.resolve();
+
+        this._driverSet = oldDriverSetDone.then(function () {
+            var driverName = supportedDrivers[0];
+            self._dbInfo = null;
+            self._ready = null;
+
+            return self.getDriver(driverName).then(function (driver) {
+                self._driver = driver._driver;
+                setDriverToConfig();
+                self._wrapLibraryMethodsWithReady();
+                self._initDriver = initDriver(supportedDrivers);
+            });
+        })["catch"](function () {
+            setDriverToConfig();
+            var error = new Error('No available storage method found.');
+            self._driverSet = Promise$1.reject(error);
+            return self._driverSet;
+        });
+
+        executeTwoCallbacks(this._driverSet, callback, errorCallback);
+        return this._driverSet;
+    };
+
+    LocalForage.prototype.supports = function supports(driverName) {
+        return !!driverSupport[driverName];
+    };
+
+    LocalForage.prototype._extend = function _extend(libraryMethodsAndProperties) {
+        extend(this, libraryMethodsAndProperties);
+    };
+
+    LocalForage.prototype._getSupportedDrivers = function _getSupportedDrivers(drivers) {
+        var supportedDrivers = [];
+        for (var i = 0, len = drivers.length; i < len; i++) {
+            var driverName = drivers[i];
+            if (this.supports(driverName)) {
+                supportedDrivers.push(driverName);
+            }
+        }
+        return supportedDrivers;
+    };
+
+    LocalForage.prototype._wrapLibraryMethodsWithReady = function _wrapLibraryMethodsWithReady() {
+        // Add a stub for each driver API method that delays the call to the
+        // corresponding driver method until localForage is ready. These stubs
+        // will be replaced by the driver methods as soon as the driver is
+        // loaded, so there is no performance impact.
+        for (var i = 0; i < LibraryMethods.length; i++) {
+            callWhenReady(this, LibraryMethods[i]);
+        }
+    };
+
+    LocalForage.prototype.createInstance = function createInstance(options) {
+        return new LocalForage(options);
+    };
+
+    return LocalForage;
+}();
+
+// The actual localForage object that we expose as a module or via a
+// global. It's extended by pulling in one of our other libraries.
+
+
+var localforage_js = new LocalForage();
+
+module.exports = localforage_js;
+
+},{"3":3}]},{},[4])(4)
+});
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],3:[function(require,module,exports){
 /**
  * @license AngularJS v1.6.6
  * (c) 2010-2017 Google, Inc. http://angularjs.org
@@ -1229,11 +4057,11 @@ function ngViewFillContentFactory($compile, $controller, $route) {
 
 })(window, window.angular);
 
-},{}],2:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 require('./angular-route');
 module.exports = 'ngRoute';
 
-},{"./angular-route":1}],3:[function(require,module,exports){
+},{"./angular-route":3}],5:[function(require,module,exports){
 /**
  * @license AngularJS v1.6.6
  * (c) 2010-2017 Google, Inc. http://angularjs.org
@@ -35123,2581 +37951,14 @@ $provide.value("$locale", {
 })(window);
 
 !window.angular.$$csp().noInlineStyle && window.angular.element(document.head).prepend('<style type="text/css">@charset "UTF-8";[ng\\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide:not(.ng-hide-animate){display:none !important;}ng\\:form{display:block;}.ng-animate-shim{visibility:hidden;}.ng-anchor{position:absolute;}</style>');
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 require('./angular');
 module.exports = angular;
 
-},{"./angular":3}],5:[function(require,module,exports){
-(function (process,global){
-/*!
- * @overview RSVP - a tiny implementation of Promises/A+.
- * @copyright Copyright (c) 2016 Yehuda Katz, Tom Dale, Stefan Penner and contributors
- * @license   Licensed under MIT license
- *            See https://raw.githubusercontent.com/tildeio/rsvp.js/master/LICENSE
- * @version   4.7.0
- */
-
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.RSVP = global.RSVP || {})));
-}(this, (function (exports) { 'use strict';
-
-function callbacksFor(object) {
-  var callbacks = object._promiseCallbacks;
-
-  if (!callbacks) {
-    callbacks = object._promiseCallbacks = {};
-  }
-
-  return callbacks;
-}
-
-/**
-  @class RSVP.EventTarget
-*/
-var EventTarget = {
-
-  /**
-    `RSVP.EventTarget.mixin` extends an object with EventTarget methods. For
-    Example:
-     ```javascript
-    let object = {};
-     RSVP.EventTarget.mixin(object);
-     object.on('finished', function(event) {
-      // handle event
-    });
-     object.trigger('finished', { detail: value });
-    ```
-     `EventTarget.mixin` also works with prototypes:
-     ```javascript
-    let Person = function() {};
-    RSVP.EventTarget.mixin(Person.prototype);
-     let yehuda = new Person();
-    let tom = new Person();
-     yehuda.on('poke', function(event) {
-      console.log('Yehuda says OW');
-    });
-     tom.on('poke', function(event) {
-      console.log('Tom says OW');
-    });
-     yehuda.trigger('poke');
-    tom.trigger('poke');
-    ```
-     @method mixin
-    @for RSVP.EventTarget
-    @private
-    @param {Object} object object to extend with EventTarget methods
-  */
-  mixin: function (object) {
-    object['on'] = this['on'];
-    object['off'] = this['off'];
-    object['trigger'] = this['trigger'];
-    object._promiseCallbacks = undefined;
-    return object;
-  },
-
-
-  /**
-    Registers a callback to be executed when `eventName` is triggered
-     ```javascript
-    object.on('event', function(eventInfo){
-      // handle the event
-    });
-     object.trigger('event');
-    ```
-     @method on
-    @for RSVP.EventTarget
-    @private
-    @param {String} eventName name of the event to listen for
-    @param {Function} callback function to be called when the event is triggered.
-  */
-  on: function (eventName, callback) {
-    if (typeof callback !== 'function') {
-      throw new TypeError('Callback must be a function');
-    }
-
-    var allCallbacks = callbacksFor(this),
-        callbacks = void 0;
-
-    callbacks = allCallbacks[eventName];
-
-    if (!callbacks) {
-      callbacks = allCallbacks[eventName] = [];
-    }
-
-    if (callbacks.indexOf(callback)) {
-      callbacks.push(callback);
-    }
-  },
-
-
-  /**
-    You can use `off` to stop firing a particular callback for an event:
-     ```javascript
-    function doStuff() { // do stuff! }
-    object.on('stuff', doStuff);
-     object.trigger('stuff'); // doStuff will be called
-     // Unregister ONLY the doStuff callback
-    object.off('stuff', doStuff);
-    object.trigger('stuff'); // doStuff will NOT be called
-    ```
-     If you don't pass a `callback` argument to `off`, ALL callbacks for the
-    event will not be executed when the event fires. For example:
-     ```javascript
-    let callback1 = function(){};
-    let callback2 = function(){};
-     object.on('stuff', callback1);
-    object.on('stuff', callback2);
-     object.trigger('stuff'); // callback1 and callback2 will be executed.
-     object.off('stuff');
-    object.trigger('stuff'); // callback1 and callback2 will not be executed!
-    ```
-     @method off
-    @for RSVP.EventTarget
-    @private
-    @param {String} eventName event to stop listening to
-    @param {Function} callback optional argument. If given, only the function
-    given will be removed from the event's callback queue. If no `callback`
-    argument is given, all callbacks will be removed from the event's callback
-    queue.
-  */
-  off: function (eventName, callback) {
-    var allCallbacks = callbacksFor(this),
-        callbacks = void 0,
-        index = void 0;
-
-    if (!callback) {
-      allCallbacks[eventName] = [];
-      return;
-    }
-
-    callbacks = allCallbacks[eventName];
-
-    index = callbacks.indexOf(callback);
-
-    if (index !== -1) {
-      callbacks.splice(index, 1);
-    }
-  },
-
-
-  /**
-    Use `trigger` to fire custom events. For example:
-     ```javascript
-    object.on('foo', function(){
-      console.log('foo event happened!');
-    });
-    object.trigger('foo');
-    // 'foo event happened!' logged to the console
-    ```
-     You can also pass a value as a second argument to `trigger` that will be
-    passed as an argument to all event listeners for the event:
-     ```javascript
-    object.on('foo', function(value){
-      console.log(value.name);
-    });
-     object.trigger('foo', { name: 'bar' });
-    // 'bar' logged to the console
-    ```
-     @method trigger
-    @for RSVP.EventTarget
-    @private
-    @param {String} eventName name of the event to be triggered
-    @param {*} options optional value to be passed to any event handlers for
-    the given `eventName`
-  */
-  trigger: function (eventName, options, label) {
-    var allCallbacks = callbacksFor(this),
-        callbacks = void 0,
-        callback = void 0;
-
-    if (callbacks = allCallbacks[eventName]) {
-      // Don't cache the callbacks.length since it may grow
-      for (var i = 0; i < callbacks.length; i++) {
-        callback = callbacks[i];
-
-        callback(options, label);
-      }
-    }
-  }
-};
-
-var config = {
-  instrument: false
-};
-
-EventTarget['mixin'](config);
-
-function configure(name, value) {
-  if (arguments.length === 2) {
-    config[name] = value;
-  } else {
-    return config[name];
-  }
-}
-
-var queue = [];
-
-function scheduleFlush() {
-  setTimeout(function () {
-    for (var i = 0; i < queue.length; i++) {
-      var entry = queue[i];
-
-      var payload = entry.payload;
-
-      payload.guid = payload.key + payload.id;
-      payload.childGuid = payload.key + payload.childId;
-      if (payload.error) {
-        payload.stack = payload.error.stack;
-      }
-
-      config['trigger'](entry.name, entry.payload);
-    }
-    queue.length = 0;
-  }, 50);
-}
-
-function instrument(eventName, promise, child) {
-  if (1 === queue.push({
-    name: eventName,
-    payload: {
-      key: promise._guidKey,
-      id: promise._id,
-      eventName: eventName,
-      detail: promise._result,
-      childId: child && child._id,
-      label: promise._label,
-      timeStamp: Date.now(),
-      error: config["instrument-with-stack"] ? new Error(promise._label) : null
-    } })) {
-    scheduleFlush();
-  }
-}
-
-/**
-  `RSVP.Promise.resolve` returns a promise that will become resolved with the
-  passed `value`. It is shorthand for the following:
-
-  ```javascript
-  let promise = new RSVP.Promise(function(resolve, reject){
-    resolve(1);
-  });
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  let promise = RSVP.Promise.resolve(1);
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  @method resolve
-  @static
-  @param {*} object value that the returned promise will be resolved with
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise that will become fulfilled with the given
-  `value`
-*/
-function resolve$1(object, label) {
-  /*jshint validthis:true */
-  var Constructor = this;
-
-  if (object && typeof object === 'object' && object.constructor === Constructor) {
-    return object;
-  }
-
-  var promise = new Constructor(noop, label);
-  resolve(promise, object);
-  return promise;
-}
-
-function withOwnPromise() {
-  return new TypeError('A promises callback cannot return that same promise.');
-}
-
-function objectOrFunction(x) {
-  var type = typeof x;
-  return x !== null && (type === 'object' || type === 'function');
-}
-
-function noop() {}
-
-var PENDING = void 0;
-var FULFILLED = 1;
-var REJECTED = 2;
-
-function ErrorObject() {
-  this.error = null;
-}
-
-var GET_THEN_ERROR = new ErrorObject();
-
-function getThen(promise) {
-  try {
-    return promise.then;
-  } catch (error) {
-    GET_THEN_ERROR.error = error;
-    return GET_THEN_ERROR;
-  }
-}
-
-var TRY_CATCH_ERROR = new ErrorObject();
-
-var tryCatchCallback = void 0;
-function tryCatcher() {
-  try {
-    var target = tryCatchCallback;
-    tryCatchCallback = null;
-    return target.apply(this, arguments);
-  } catch (e) {
-    TRY_CATCH_ERROR.error = e;
-    return TRY_CATCH_ERROR;
-  }
-}
-
-function tryCatch(fn) {
-  tryCatchCallback = fn;
-  return tryCatcher;
-}
-
-function tryThen(then$$1, value, fulfillmentHandler, rejectionHandler) {
-  try {
-    then$$1.call(value, fulfillmentHandler, rejectionHandler);
-  } catch (e) {
-    return e;
-  }
-}
-
-function handleForeignThenable(promise, thenable, then$$1) {
-  config.async(function (promise) {
-    var sealed = false;
-    var error = tryThen(then$$1, thenable, function (value) {
-      if (sealed) {
-        return;
-      }
-      sealed = true;
-      if (thenable !== value) {
-        resolve(promise, value, undefined);
-      } else {
-        fulfill(promise, value);
-      }
-    }, function (reason) {
-      if (sealed) {
-        return;
-      }
-      sealed = true;
-
-      reject(promise, reason);
-    }, 'Settle: ' + (promise._label || ' unknown promise'));
-
-    if (!sealed && error) {
-      sealed = true;
-      reject(promise, error);
-    }
-  }, promise);
-}
-
-function handleOwnThenable(promise, thenable) {
-  if (thenable._state === FULFILLED) {
-    fulfill(promise, thenable._result);
-  } else if (thenable._state === REJECTED) {
-    thenable._onError = null;
-    reject(promise, thenable._result);
-  } else {
-    subscribe(thenable, undefined, function (value) {
-      if (thenable === value) {
-        fulfill(promise, value);
-      } else {
-        resolve(promise, value);
-      }
-    }, function (reason) {
-      return reject(promise, reason);
-    });
-  }
-}
-
-function handleMaybeThenable(promise, maybeThenable, then$$1) {
-  var isOwnThenable = maybeThenable.constructor === promise.constructor && then$$1 === then && promise.constructor.resolve === resolve$1;
-
-  if (isOwnThenable) {
-    handleOwnThenable(promise, maybeThenable);
-  } else if (then$$1 === GET_THEN_ERROR) {
-    var error = GET_THEN_ERROR.error;
-    GET_THEN_ERROR.error = null;
-    reject(promise, error);
-  } else if (typeof then$$1 === 'function') {
-    handleForeignThenable(promise, maybeThenable, then$$1);
-  } else {
-    fulfill(promise, maybeThenable);
-  }
-}
-
-function resolve(promise, value) {
-  if (promise === value) {
-    fulfill(promise, value);
-  } else if (objectOrFunction(value)) {
-    handleMaybeThenable(promise, value, getThen(value));
-  } else {
-    fulfill(promise, value);
-  }
-}
-
-function publishRejection(promise) {
-  if (promise._onError) {
-    promise._onError(promise._result);
-  }
-
-  publish(promise);
-}
-
-function fulfill(promise, value) {
-  if (promise._state !== PENDING) {
-    return;
-  }
-
-  promise._result = value;
-  promise._state = FULFILLED;
-
-  if (promise._subscribers.length === 0) {
-    if (config.instrument) {
-      instrument('fulfilled', promise);
-    }
-  } else {
-    config.async(publish, promise);
-  }
-}
-
-function reject(promise, reason) {
-  if (promise._state !== PENDING) {
-    return;
-  }
-  promise._state = REJECTED;
-  promise._result = reason;
-  config.async(publishRejection, promise);
-}
-
-function subscribe(parent, child, onFulfillment, onRejection) {
-  var subscribers = parent._subscribers;
-  var length = subscribers.length;
-
-  parent._onError = null;
-
-  subscribers[length] = child;
-  subscribers[length + FULFILLED] = onFulfillment;
-  subscribers[length + REJECTED] = onRejection;
-
-  if (length === 0 && parent._state) {
-    config.async(publish, parent);
-  }
-}
-
-function publish(promise) {
-  var subscribers = promise._subscribers;
-  var settled = promise._state;
-
-  if (config.instrument) {
-    instrument(settled === FULFILLED ? 'fulfilled' : 'rejected', promise);
-  }
-
-  if (subscribers.length === 0) {
-    return;
-  }
-
-  var child = void 0,
-      callback = void 0,
-      result = promise._result;
-
-  for (var i = 0; i < subscribers.length; i += 3) {
-    child = subscribers[i];
-    callback = subscribers[i + settled];
-
-    if (child) {
-      invokeCallback(settled, child, callback, result);
-    } else {
-      callback(result);
-    }
-  }
-
-  promise._subscribers.length = 0;
-}
-
-function invokeCallback(state, promise, callback, result) {
-  var hasCallback = typeof callback === 'function';
-  var value = void 0;
-
-  if (hasCallback) {
-    value = tryCatch(callback)(result);
-  } else {
-    value = result;
-  }
-
-  if (promise._state !== PENDING) {
-    // noop
-  } else if (value === promise) {
-    reject(promise, withOwnPromise());
-  } else if (value === TRY_CATCH_ERROR) {
-    var error = value.error;
-    value.error = null; // release
-    reject(promise, error);
-  } else if (hasCallback) {
-    resolve(promise, value);
-  } else if (state === FULFILLED) {
-    fulfill(promise, value);
-  } else if (state === REJECTED) {
-    reject(promise, value);
-  }
-}
-
-function initializePromise(promise, resolver) {
-  var resolved = false;
-  try {
-    resolver(function (value) {
-      if (resolved) {
-        return;
-      }
-      resolved = true;
-      resolve(promise, value);
-    }, function (reason) {
-      if (resolved) {
-        return;
-      }
-      resolved = true;
-      reject(promise, reason);
-    });
-  } catch (e) {
-    reject(promise, e);
-  }
-}
-
-function then(onFulfillment, onRejection, label) {
-  var parent = this;
-  var state = parent._state;
-
-  if (state === FULFILLED && !onFulfillment || state === REJECTED && !onRejection) {
-    config.instrument && instrument('chained', parent, parent);
-    return parent;
-  }
-
-  parent._onError = null;
-
-  var child = new parent.constructor(noop, label);
-  var result = parent._result;
-
-  config.instrument && instrument('chained', parent, child);
-
-  if (state === PENDING) {
-    subscribe(parent, child, onFulfillment, onRejection);
-  } else {
-    var callback = state === FULFILLED ? onFulfillment : onRejection;
-    config.async(function () {
-      return invokeCallback(state, child, callback, result);
-    });
-  }
-
-  return child;
-}
-
-var Enumerator = function () {
-  function Enumerator(Constructor, input, abortOnReject, label) {
-    this._instanceConstructor = Constructor;
-    this.promise = new Constructor(noop, label);
-    this._abortOnReject = abortOnReject;
-    this.isUsingOwnPromise = Constructor === Promise;
-
-    this._init.apply(this, arguments);
-  }
-
-  Enumerator.prototype._init = function _init(Constructor, input) {
-    var len = input.length || 0;
-    this.length = len;
-    this._remaining = len;
-    this._result = new Array(len);
-
-    this._enumerate(input);
-  };
-
-  Enumerator.prototype._enumerate = function _enumerate(input) {
-    var length = this.length;
-    var promise = this.promise;
-
-    for (var i = 0; promise._state === PENDING && i < length; i++) {
-      this._eachEntry(input[i], i, true);
-    }
-
-    this._checkFullfillment();
-  };
-
-  Enumerator.prototype._checkFullfillment = function _checkFullfillment() {
-    if (this._remaining === 0) {
-      fulfill(this.promise, this._result);
-    }
-  };
-
-  Enumerator.prototype._settleMaybeThenable = function _settleMaybeThenable(entry, i, firstPass) {
-    var c = this._instanceConstructor;
-    var resolve$$1 = c.resolve;
-
-    if (resolve$$1 === resolve$1) {
-      var then$$1 = getThen(entry);
-
-      if (then$$1 === then && entry._state !== PENDING) {
-        entry._onError = null;
-        this._settledAt(entry._state, i, entry._result, firstPass);
-      } else if (typeof then$$1 !== 'function') {
-        this._settledAt(FULFILLED, i, entry, firstPass);
-      } else if (this.isUsingOwnPromise) {
-        var promise = new c(noop);
-        handleMaybeThenable(promise, entry, then$$1);
-        this._willSettleAt(promise, i, firstPass);
-      } else {
-        this._willSettleAt(new c(function (resolve$$1) {
-          return resolve$$1(entry);
-        }), i, firstPass);
-      }
-    } else {
-      this._willSettleAt(resolve$$1(entry), i, firstPass);
-    }
-  };
-
-  Enumerator.prototype._eachEntry = function _eachEntry(entry, i, firstPass) {
-    if (entry !== null && typeof entry === 'object') {
-      this._settleMaybeThenable(entry, i, firstPass);
-    } else {
-      this._setResultAt(FULFILLED, i, entry, firstPass);
-    }
-  };
-
-  Enumerator.prototype._settledAt = function _settledAt(state, i, value, firstPass) {
-    var promise = this.promise;
-
-    if (promise._state === PENDING) {
-      if (this._abortOnReject && state === REJECTED) {
-        reject(promise, value);
-      } else {
-        this._setResultAt(state, i, value, firstPass);
-        this._checkFullfillment();
-      }
-    }
-  };
-
-  Enumerator.prototype._setResultAt = function _setResultAt(state, i, value, firstPass) {
-    this._remaining--;
-    this._result[i] = value;
-  };
-
-  Enumerator.prototype._willSettleAt = function _willSettleAt(promise, i, firstPass) {
-    var _this = this;
-
-    subscribe(promise, undefined, function (value) {
-      return _this._settledAt(FULFILLED, i, value, firstPass);
-    }, function (reason) {
-      return _this._settledAt(REJECTED, i, reason, firstPass);
-    });
-  };
-
-  return Enumerator;
-}();
-
-function setSettledResult(state, i, value) {
-  this._remaining--;
-  if (state === FULFILLED) {
-    this._result[i] = {
-      state: 'fulfilled',
-      value: value
-    };
-  } else {
-    this._result[i] = {
-      state: 'rejected',
-      reason: value
-    };
-  }
-}
-
-/**
-  `RSVP.Promise.all` accepts an array of promises, and returns a new promise which
-  is fulfilled with an array of fulfillment values for the passed promises, or
-  rejected with the reason of the first passed promise to be rejected. It casts all
-  elements of the passed iterable to promises as it runs this algorithm.
-
-  Example:
-
-  ```javascript
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.resolve(2);
-  let promise3 = RSVP.resolve(3);
-  let promises = [ promise1, promise2, promise3 ];
-
-  RSVP.Promise.all(promises).then(function(array){
-    // The array here would be [ 1, 2, 3 ];
-  });
-  ```
-
-  If any of the `promises` given to `RSVP.all` are rejected, the first promise
-  that is rejected will be given as an argument to the returned promises's
-  rejection handler. For example:
-
-  Example:
-
-  ```javascript
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.reject(new Error("2"));
-  let promise3 = RSVP.reject(new Error("3"));
-  let promises = [ promise1, promise2, promise3 ];
-
-  RSVP.Promise.all(promises).then(function(array){
-    // Code here never runs because there are rejected promises!
-  }, function(error) {
-    // error.message === "2"
-  });
-  ```
-
-  @method all
-  @static
-  @param {Array} entries array of promises
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @return {Promise} promise that is fulfilled when all `promises` have been
-  fulfilled, or rejected if any of them become rejected.
-  @static
-*/
-function all(entries, label) {
-  if (!Array.isArray(entries)) {
-    return this.reject(new TypeError("Promise.all must be called with an array"), label);
-  }
-  return new Enumerator(this, entries, true /* abort on reject */, label).promise;
-}
-
-/**
-  `RSVP.Promise.race` returns a new promise which is settled in the same way as the
-  first passed promise to settle.
-
-  Example:
-
-  ```javascript
-  let promise1 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 1');
-    }, 200);
-  });
-
-  let promise2 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 2');
-    }, 100);
-  });
-
-  RSVP.Promise.race([promise1, promise2]).then(function(result){
-    // result === 'promise 2' because it was resolved before promise1
-    // was resolved.
-  });
-  ```
-
-  `RSVP.Promise.race` is deterministic in that only the state of the first
-  settled promise matters. For example, even if other promises given to the
-  `promises` array argument are resolved, but the first settled promise has
-  become rejected before the other promises became fulfilled, the returned
-  promise will become rejected:
-
-  ```javascript
-  let promise1 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve('promise 1');
-    }, 200);
-  });
-
-  let promise2 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      reject(new Error('promise 2'));
-    }, 100);
-  });
-
-  RSVP.Promise.race([promise1, promise2]).then(function(result){
-    // Code here never runs
-  }, function(reason){
-    // reason.message === 'promise 2' because promise 2 became rejected before
-    // promise 1 became fulfilled
-  });
-  ```
-
-  An example real-world use case is implementing timeouts:
-
-  ```javascript
-  RSVP.Promise.race([ajax('foo.json'), timeout(5000)])
-  ```
-
-  @method race
-  @static
-  @param {Array} entries array of promises to observe
-  @param {String} label optional string for describing the promise returned.
-  Useful for tooling.
-  @return {Promise} a promise which settles in the same way as the first passed
-  promise to settle.
-*/
-function race(entries, label) {
-  /*jshint validthis:true */
-  var Constructor = this;
-
-  var promise = new Constructor(noop, label);
-
-  if (!Array.isArray(entries)) {
-    reject(promise, new TypeError('Promise.race must be called with an array'));
-    return promise;
-  }
-
-  for (var i = 0; promise._state === PENDING && i < entries.length; i++) {
-    subscribe(Constructor.resolve(entries[i]), undefined, function (value) {
-      return resolve(promise, value);
-    }, function (reason) {
-      return reject(promise, reason);
-    });
-  }
-
-  return promise;
-}
-
-/**
-  `RSVP.Promise.reject` returns a promise rejected with the passed `reason`.
-  It is shorthand for the following:
-
-  ```javascript
-  let promise = new RSVP.Promise(function(resolve, reject){
-    reject(new Error('WHOOPS'));
-  });
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  let promise = RSVP.Promise.reject(new Error('WHOOPS'));
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  @method reject
-  @static
-  @param {*} reason value that the returned promise will be rejected with.
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise rejected with the given `reason`.
-*/
-function reject$1(reason, label) {
-  /*jshint validthis:true */
-  var Constructor = this;
-  var promise = new Constructor(noop, label);
-  reject(promise, reason);
-  return promise;
-}
-
-var guidKey = 'rsvp_' + Date.now() + '-';
-var counter = 0;
-
-function needsResolver() {
-  throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
-}
-
-function needsNew() {
-  throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
-}
-
-/**
-  Promise objects represent the eventual result of an asynchronous operation. The
-  primary way of interacting with a promise is through its `then` method, which
-  registers callbacks to receive either a promise’s eventual value or the reason
-  why the promise cannot be fulfilled.
-
-  Terminology
-  -----------
-
-  - `promise` is an object or function with a `then` method whose behavior conforms to this specification.
-  - `thenable` is an object or function that defines a `then` method.
-  - `value` is any legal JavaScript value (including undefined, a thenable, or a promise).
-  - `exception` is a value that is thrown using the throw statement.
-  - `reason` is a value that indicates why a promise was rejected.
-  - `settled` the final resting state of a promise, fulfilled or rejected.
-
-  A promise can be in one of three states: pending, fulfilled, or rejected.
-
-  Promises that are fulfilled have a fulfillment value and are in the fulfilled
-  state.  Promises that are rejected have a rejection reason and are in the
-  rejected state.  A fulfillment value is never a thenable.
-
-  Promises can also be said to *resolve* a value.  If this value is also a
-  promise, then the original promise's settled state will match the value's
-  settled state.  So a promise that *resolves* a promise that rejects will
-  itself reject, and a promise that *resolves* a promise that fulfills will
-  itself fulfill.
-
-
-  Basic Usage:
-  ------------
-
-  ```js
-  let promise = new Promise(function(resolve, reject) {
-    // on success
-    resolve(value);
-
-    // on failure
-    reject(reason);
-  });
-
-  promise.then(function(value) {
-    // on fulfillment
-  }, function(reason) {
-    // on rejection
-  });
-  ```
-
-  Advanced Usage:
-  ---------------
-
-  Promises shine when abstracting away asynchronous interactions such as
-  `XMLHttpRequest`s.
-
-  ```js
-  function getJSON(url) {
-    return new Promise(function(resolve, reject){
-      let xhr = new XMLHttpRequest();
-
-      xhr.open('GET', url);
-      xhr.onreadystatechange = handler;
-      xhr.responseType = 'json';
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.send();
-
-      function handler() {
-        if (this.readyState === this.DONE) {
-          if (this.status === 200) {
-            resolve(this.response);
-          } else {
-            reject(new Error('getJSON: `' + url + '` failed with status: [' + this.status + ']'));
-          }
-        }
-      };
-    });
-  }
-
-  getJSON('/posts.json').then(function(json) {
-    // on fulfillment
-  }, function(reason) {
-    // on rejection
-  });
-  ```
-
-  Unlike callbacks, promises are great composable primitives.
-
-  ```js
-  Promise.all([
-    getJSON('/posts'),
-    getJSON('/comments')
-  ]).then(function(values){
-    values[0] // => postsJSON
-    values[1] // => commentsJSON
-
-    return values;
-  });
-  ```
-
-  @class RSVP.Promise
-  @param {function} resolver
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @constructor
-*/
-
-var Promise = function () {
-  function Promise(resolver, label) {
-    this._id = counter++;
-    this._label = label;
-    this._state = undefined;
-    this._result = undefined;
-    this._subscribers = [];
-
-    config.instrument && instrument('created', this);
-
-    if (noop !== resolver) {
-      typeof resolver !== 'function' && needsResolver();
-      this instanceof Promise ? initializePromise(this, resolver) : needsNew();
-    }
-  }
-
-  Promise.prototype._onError = function _onError(reason) {
-    var _this = this;
-
-    config.after(function () {
-      if (_this._onError) {
-        config.trigger('error', reason, _this._label);
-      }
-    });
-  };
-
-  /**
-    `catch` is simply sugar for `then(undefined, onRejection)` which makes it the same
-    as the catch block of a try/catch statement.
-  
-    ```js
-    function findAuthor(){
-      throw new Error('couldn\'t find that author');
-    }
-  
-    // synchronous
-    try {
-      findAuthor();
-    } catch(reason) {
-      // something went wrong
-    }
-  
-    // async with promises
-    findAuthor().catch(function(reason){
-      // something went wrong
-    });
-    ```
-  
-    @method catch
-    @param {Function} onRejection
-    @param {String} label optional string for labeling the promise.
-    Useful for tooling.
-    @return {Promise}
-  */
-
-
-  Promise.prototype.catch = function _catch(onRejection, label) {
-    return this.then(undefined, onRejection, label);
-  };
-
-  /**
-    `finally` will be invoked regardless of the promise's fate just as native
-    try/catch/finally behaves
-  
-    Synchronous example:
-  
-    ```js
-    findAuthor() {
-      if (Math.random() > 0.5) {
-        throw new Error();
-      }
-      return new Author();
-    }
-  
-    try {
-      return findAuthor(); // succeed or fail
-    } catch(error) {
-      return findOtherAuthor();
-    } finally {
-      // always runs
-      // doesn't affect the return value
-    }
-    ```
-  
-    Asynchronous example:
-  
-    ```js
-    findAuthor().catch(function(reason){
-      return findOtherAuthor();
-    }).finally(function(){
-      // author was either found, or not
-    });
-    ```
-  
-    @method finally
-    @param {Function} callback
-    @param {String} label optional string for labeling the promise.
-    Useful for tooling.
-    @return {Promise}
-  */
-
-
-  Promise.prototype.finally = function _finally(callback, label) {
-    var promise = this;
-    var constructor = promise.constructor;
-
-    return promise.then(function (value) {
-      return constructor.resolve(callback()).then(function () {
-        return value;
-      });
-    }, function (reason) {
-      return constructor.resolve(callback()).then(function () {
-        throw reason;
-      });
-    }, label);
-  };
-
-  return Promise;
-}();
-
-Promise.cast = resolve$1; // deprecated
-Promise.all = all;
-Promise.race = race;
-Promise.resolve = resolve$1;
-Promise.reject = reject$1;
-
-Promise.prototype._guidKey = guidKey;
-
-/**
-  The primary way of interacting with a promise is through its `then` method,
-  which registers callbacks to receive either a promise's eventual value or the
-  reason why the promise cannot be fulfilled.
-
-  ```js
-  findUser().then(function(user){
-    // user is available
-  }, function(reason){
-    // user is unavailable, and you are given the reason why
-  });
-  ```
-
-  Chaining
-  --------
-
-  The return value of `then` is itself a promise.  This second, 'downstream'
-  promise is resolved with the return value of the first promise's fulfillment
-  or rejection handler, or rejected if the handler throws an exception.
-
-  ```js
-  findUser().then(function (user) {
-    return user.name;
-  }, function (reason) {
-    return 'default name';
-  }).then(function (userName) {
-    // If `findUser` fulfilled, `userName` will be the user's name, otherwise it
-    // will be `'default name'`
-  });
-
-  findUser().then(function (user) {
-    throw new Error('Found user, but still unhappy');
-  }, function (reason) {
-    throw new Error('`findUser` rejected and we\'re unhappy');
-  }).then(function (value) {
-    // never reached
-  }, function (reason) {
-    // if `findUser` fulfilled, `reason` will be 'Found user, but still unhappy'.
-    // If `findUser` rejected, `reason` will be '`findUser` rejected and we\'re unhappy'.
-  });
-  ```
-  If the downstream promise does not specify a rejection handler, rejection reasons will be propagated further downstream.
-
-  ```js
-  findUser().then(function (user) {
-    throw new PedagogicalException('Upstream error');
-  }).then(function (value) {
-    // never reached
-  }).then(function (value) {
-    // never reached
-  }, function (reason) {
-    // The `PedgagocialException` is propagated all the way down to here
-  });
-  ```
-
-  Assimilation
-  ------------
-
-  Sometimes the value you want to propagate to a downstream promise can only be
-  retrieved asynchronously. This can be achieved by returning a promise in the
-  fulfillment or rejection handler. The downstream promise will then be pending
-  until the returned promise is settled. This is called *assimilation*.
-
-  ```js
-  findUser().then(function (user) {
-    return findCommentsByAuthor(user);
-  }).then(function (comments) {
-    // The user's comments are now available
-  });
-  ```
-
-  If the assimliated promise rejects, then the downstream promise will also reject.
-
-  ```js
-  findUser().then(function (user) {
-    return findCommentsByAuthor(user);
-  }).then(function (comments) {
-    // If `findCommentsByAuthor` fulfills, we'll have the value here
-  }, function (reason) {
-    // If `findCommentsByAuthor` rejects, we'll have the reason here
-  });
-  ```
-
-  Simple Example
-  --------------
-
-  Synchronous Example
-
-  ```javascript
-  let result;
-
-  try {
-    result = findResult();
-    // success
-  } catch(reason) {
-    // failure
-  }
-  ```
-
-  Errback Example
-
-  ```js
-  findResult(function(result, err){
-    if (err) {
-      // failure
-    } else {
-      // success
-    }
-  });
-  ```
-
-  Promise Example;
-
-  ```javascript
-  findResult().then(function(result){
-    // success
-  }, function(reason){
-    // failure
-  });
-  ```
-
-  Advanced Example
-  --------------
-
-  Synchronous Example
-
-  ```javascript
-  let author, books;
-
-  try {
-    author = findAuthor();
-    books  = findBooksByAuthor(author);
-    // success
-  } catch(reason) {
-    // failure
-  }
-  ```
-
-  Errback Example
-
-  ```js
-
-  function foundBooks(books) {
-
-  }
-
-  function failure(reason) {
-
-  }
-
-  findAuthor(function(author, err){
-    if (err) {
-      failure(err);
-      // failure
-    } else {
-      try {
-        findBoooksByAuthor(author, function(books, err) {
-          if (err) {
-            failure(err);
-          } else {
-            try {
-              foundBooks(books);
-            } catch(reason) {
-              failure(reason);
-            }
-          }
-        });
-      } catch(error) {
-        failure(err);
-      }
-      // success
-    }
-  });
-  ```
-
-  Promise Example;
-
-  ```javascript
-  findAuthor().
-    then(findBooksByAuthor).
-    then(function(books){
-      // found books
-  }).catch(function(reason){
-    // something went wrong
-  });
-  ```
-
-  @method then
-  @param {Function} onFulfillment
-  @param {Function} onRejection
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @return {Promise}
-*/
-Promise.prototype.then = then;
-
-function Result() {
-  this.value = undefined;
-}
-
-var ERROR = new Result();
-var GET_THEN_ERROR$1 = new Result();
-
-function getThen$1(obj) {
-  try {
-    return obj.then;
-  } catch (error) {
-    ERROR.value = error;
-    return ERROR;
-  }
-}
-
-function tryApply(f, s, a) {
-  try {
-    f.apply(s, a);
-  } catch (error) {
-    ERROR.value = error;
-    return ERROR;
-  }
-}
-
-function makeObject(_, argumentNames) {
-  var obj = {};
-  var length = _.length;
-  var args = new Array(length);
-
-  for (var x = 0; x < length; x++) {
-    args[x] = _[x];
-  }
-
-  for (var i = 0; i < argumentNames.length; i++) {
-    var name = argumentNames[i];
-    obj[name] = args[i + 1];
-  }
-
-  return obj;
-}
-
-function arrayResult(_) {
-  var length = _.length;
-  var args = new Array(length - 1);
-
-  for (var i = 1; i < length; i++) {
-    args[i - 1] = _[i];
-  }
-
-  return args;
-}
-
-function wrapThenable(then, promise) {
-  return {
-    then: function (onFulFillment, onRejection) {
-      return then.call(promise, onFulFillment, onRejection);
-    }
-  };
-}
-
-/**
-  `RSVP.denodeify` takes a 'node-style' function and returns a function that
-  will return an `RSVP.Promise`. You can use `denodeify` in Node.js or the
-  browser when you'd prefer to use promises over using callbacks. For example,
-  `denodeify` transforms the following:
-
-  ```javascript
-  let fs = require('fs');
-
-  fs.readFile('myfile.txt', function(err, data){
-    if (err) return handleError(err);
-    handleData(data);
-  });
-  ```
-
-  into:
-
-  ```javascript
-  let fs = require('fs');
-  let readFile = RSVP.denodeify(fs.readFile);
-
-  readFile('myfile.txt').then(handleData, handleError);
-  ```
-
-  If the node function has multiple success parameters, then `denodeify`
-  just returns the first one:
-
-  ```javascript
-  let request = RSVP.denodeify(require('request'));
-
-  request('http://example.com').then(function(res) {
-    // ...
-  });
-  ```
-
-  However, if you need all success parameters, setting `denodeify`'s
-  second parameter to `true` causes it to return all success parameters
-  as an array:
-
-  ```javascript
-  let request = RSVP.denodeify(require('request'), true);
-
-  request('http://example.com').then(function(result) {
-    // result[0] -> res
-    // result[1] -> body
-  });
-  ```
-
-  Or if you pass it an array with names it returns the parameters as a hash:
-
-  ```javascript
-  let request = RSVP.denodeify(require('request'), ['res', 'body']);
-
-  request('http://example.com').then(function(result) {
-    // result.res
-    // result.body
-  });
-  ```
-
-  Sometimes you need to retain the `this`:
-
-  ```javascript
-  let app = require('express')();
-  let render = RSVP.denodeify(app.render.bind(app));
-  ```
-
-  The denodified function inherits from the original function. It works in all
-  environments, except IE 10 and below. Consequently all properties of the original
-  function are available to you. However, any properties you change on the
-  denodeified function won't be changed on the original function. Example:
-
-  ```javascript
-  let request = RSVP.denodeify(require('request')),
-      cookieJar = request.jar(); // <- Inheritance is used here
-
-  request('http://example.com', {jar: cookieJar}).then(function(res) {
-    // cookieJar.cookies holds now the cookies returned by example.com
-  });
-  ```
-
-  Using `denodeify` makes it easier to compose asynchronous operations instead
-  of using callbacks. For example, instead of:
-
-  ```javascript
-  let fs = require('fs');
-
-  fs.readFile('myfile.txt', function(err, data){
-    if (err) { ... } // Handle error
-    fs.writeFile('myfile2.txt', data, function(err){
-      if (err) { ... } // Handle error
-      console.log('done')
-    });
-  });
-  ```
-
-  you can chain the operations together using `then` from the returned promise:
-
-  ```javascript
-  let fs = require('fs');
-  let readFile = RSVP.denodeify(fs.readFile);
-  let writeFile = RSVP.denodeify(fs.writeFile);
-
-  readFile('myfile.txt').then(function(data){
-    return writeFile('myfile2.txt', data);
-  }).then(function(){
-    console.log('done')
-  }).catch(function(error){
-    // Handle error
-  });
-  ```
-
-  @method denodeify
-  @static
-  @for RSVP
-  @param {Function} nodeFunc a 'node-style' function that takes a callback as
-  its last argument. The callback expects an error to be passed as its first
-  argument (if an error occurred, otherwise null), and the value from the
-  operation as its second argument ('function(err, value){ }').
-  @param {Boolean|Array} [options] An optional paramter that if set
-  to `true` causes the promise to fulfill with the callback's success arguments
-  as an array. This is useful if the node function has multiple success
-  paramters. If you set this paramter to an array with names, the promise will
-  fulfill with a hash with these names as keys and the success parameters as
-  values.
-  @return {Function} a function that wraps `nodeFunc` to return an
-  `RSVP.Promise`
-  @static
-*/
-function denodeify(nodeFunc, options) {
-  var fn = function () {
-    var self = this;
-    var l = arguments.length;
-    var args = new Array(l + 1);
-    var promiseInput = false;
-
-    for (var i = 0; i < l; ++i) {
-      var arg = arguments[i];
-
-      if (!promiseInput) {
-        // TODO: clean this up
-        promiseInput = needsPromiseInput(arg);
-        if (promiseInput === GET_THEN_ERROR$1) {
-          var p = new Promise(noop);
-          reject(p, GET_THEN_ERROR$1.value);
-          return p;
-        } else if (promiseInput && promiseInput !== true) {
-          arg = wrapThenable(promiseInput, arg);
-        }
-      }
-      args[i] = arg;
-    }
-
-    var promise = new Promise(noop);
-
-    args[l] = function (err, val) {
-      if (err) reject(promise, err);else if (options === undefined) resolve(promise, val);else if (options === true) resolve(promise, arrayResult(arguments));else if (Array.isArray(options)) resolve(promise, makeObject(arguments, options));else resolve(promise, val);
-    };
-
-    if (promiseInput) {
-      return handlePromiseInput(promise, args, nodeFunc, self);
-    } else {
-      return handleValueInput(promise, args, nodeFunc, self);
-    }
-  };
-
-  fn.__proto__ = nodeFunc;
-
-  return fn;
-}
-
-function handleValueInput(promise, args, nodeFunc, self) {
-  var result = tryApply(nodeFunc, self, args);
-  if (result === ERROR) {
-    reject(promise, result.value);
-  }
-  return promise;
-}
-
-function handlePromiseInput(promise, args, nodeFunc, self) {
-  return Promise.all(args).then(function (args) {
-    var result = tryApply(nodeFunc, self, args);
-    if (result === ERROR) {
-      reject(promise, result.value);
-    }
-    return promise;
-  });
-}
-
-function needsPromiseInput(arg) {
-  if (arg && typeof arg === 'object') {
-    if (arg.constructor === Promise) {
-      return true;
-    } else {
-      return getThen$1(arg);
-    }
-  } else {
-    return false;
-  }
-}
-
-/**
-  This is a convenient alias for `RSVP.Promise.all`.
-
-  @method all
-  @static
-  @for RSVP
-  @param {Array} array Array of promises.
-  @param {String} label An optional label. This is useful
-  for tooling.
-*/
-function all$1(array, label) {
-  return Promise.all(array, label);
-}
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var AllSettled = function (_Enumerator) {
-  _inherits(AllSettled, _Enumerator);
-
-  function AllSettled(Constructor, entries, label) {
-    return _possibleConstructorReturn(this, _Enumerator.call(this, Constructor, entries, false /* don't abort on reject */, label));
-  }
-
-  return AllSettled;
-}(Enumerator);
-
-AllSettled.prototype._setResultAt = setSettledResult;
-
-/**
-`RSVP.allSettled` is similar to `RSVP.all`, but instead of implementing
-a fail-fast method, it waits until all the promises have returned and
-shows you all the results. This is useful if you want to handle multiple
-promises' failure states together as a set.
- Returns a promise that is fulfilled when all the given promises have been
-settled. The return promise is fulfilled with an array of the states of
-the promises passed into the `promises` array argument.
- Each state object will either indicate fulfillment or rejection, and
-provide the corresponding value or reason. The states will take one of
-the following formats:
- ```javascript
-{ state: 'fulfilled', value: value }
-  or
-{ state: 'rejected', reason: reason }
-```
- Example:
- ```javascript
-let promise1 = RSVP.Promise.resolve(1);
-let promise2 = RSVP.Promise.reject(new Error('2'));
-let promise3 = RSVP.Promise.reject(new Error('3'));
-let promises = [ promise1, promise2, promise3 ];
- RSVP.allSettled(promises).then(function(array){
-  // array == [
-  //   { state: 'fulfilled', value: 1 },
-  //   { state: 'rejected', reason: Error },
-  //   { state: 'rejected', reason: Error }
-  // ]
-  // Note that for the second item, reason.message will be '2', and for the
-  // third item, reason.message will be '3'.
-}, function(error) {
-  // Not run. (This block would only be called if allSettled had failed,
-  // for instance if passed an incorrect argument type.)
-});
-```
- @method allSettled
-@static
-@for RSVP
-@param {Array} entries
-@param {String} label - optional string that describes the promise.
-Useful for tooling.
-@return {Promise} promise that is fulfilled with an array of the settled
-states of the constituent promises.
-*/
-
-function allSettled(entries, label) {
-  if (!Array.isArray(entries)) {
-    return Promise.reject(new TypeError("Promise.allSettled must be called with an array"), label);
-  }
-
-  return new AllSettled(Promise, entries, label).promise;
-}
-
-/**
-  This is a convenient alias for `RSVP.Promise.race`.
-
-  @method race
-  @static
-  @for RSVP
-  @param {Array} array Array of promises.
-  @param {String} label An optional label. This is useful
-  for tooling.
- */
-function race$1(array, label) {
-  return Promise.race(array, label);
-}
-
-function _possibleConstructorReturn$1(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits$1(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-var PromiseHash = function (_Enumerator) {
-  _inherits$1(PromiseHash, _Enumerator);
-
-  function PromiseHash(Constructor, object) {
-    var abortOnReject = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-    var label = arguments[3];
-    return _possibleConstructorReturn$1(this, _Enumerator.call(this, Constructor, object, abortOnReject, label));
-  }
-
-  PromiseHash.prototype._init = function _init(Constructor, object) {
-    this._result = {};
-
-    this._enumerate(object);
-    if (this._remaining === 0) {
-      fulfill(this.promise, this._result);
-    }
-  };
-
-  PromiseHash.prototype._enumerate = function _enumerate(input) {
-    var promise = this.promise;
-    var results = [];
-
-    for (var key in input) {
-      if (hasOwnProperty.call(input, key)) {
-        results.push({
-          position: key,
-          entry: input[key]
-        });
-      }
-    }
-
-    var length = results.length;
-    this._remaining = length;
-    var result = void 0;
-
-    for (var i = 0; promise._state === PENDING && i < length; i++) {
-      result = results[i];
-      this._eachEntry(result.entry, result.position);
-    }
-  };
-
-  return PromiseHash;
-}(Enumerator);
-
-/**
-  `RSVP.hash` is similar to `RSVP.all`, but takes an object instead of an array
-  for its `promises` argument.
-
-  Returns a promise that is fulfilled when all the given promises have been
-  fulfilled, or rejected if any of them become rejected. The returned promise
-  is fulfilled with a hash that has the same key names as the `promises` object
-  argument. If any of the values in the object are not promises, they will
-  simply be copied over to the fulfilled object.
-
-  Example:
-
-  ```javascript
-  let promises = {
-    myPromise: RSVP.resolve(1),
-    yourPromise: RSVP.resolve(2),
-    theirPromise: RSVP.resolve(3),
-    notAPromise: 4
-  };
-
-  RSVP.hash(promises).then(function(hash){
-    // hash here is an object that looks like:
-    // {
-    //   myPromise: 1,
-    //   yourPromise: 2,
-    //   theirPromise: 3,
-    //   notAPromise: 4
-    // }
-  });
-  ````
-
-  If any of the `promises` given to `RSVP.hash` are rejected, the first promise
-  that is rejected will be given as the reason to the rejection handler.
-
-  Example:
-
-  ```javascript
-  let promises = {
-    myPromise: RSVP.resolve(1),
-    rejectedPromise: RSVP.reject(new Error('rejectedPromise')),
-    anotherRejectedPromise: RSVP.reject(new Error('anotherRejectedPromise')),
-  };
-
-  RSVP.hash(promises).then(function(hash){
-    // Code here never runs because there are rejected promises!
-  }, function(reason) {
-    // reason.message === 'rejectedPromise'
-  });
-  ```
-
-  An important note: `RSVP.hash` is intended for plain JavaScript objects that
-  are just a set of keys and values. `RSVP.hash` will NOT preserve prototype
-  chains.
-
-  Example:
-
-  ```javascript
-  function MyConstructor(){
-    this.example = RSVP.resolve('Example');
-  }
-
-  MyConstructor.prototype = {
-    protoProperty: RSVP.resolve('Proto Property')
-  };
-
-  let myObject = new MyConstructor();
-
-  RSVP.hash(myObject).then(function(hash){
-    // protoProperty will not be present, instead you will just have an
-    // object that looks like:
-    // {
-    //   example: 'Example'
-    // }
-    //
-    // hash.hasOwnProperty('protoProperty'); // false
-    // 'undefined' === typeof hash.protoProperty
-  });
-  ```
-
-  @method hash
-  @static
-  @for RSVP
-  @param {Object} object
-  @param {String} label optional string that describes the promise.
-  Useful for tooling.
-  @return {Promise} promise that is fulfilled when all properties of `promises`
-  have been fulfilled, or rejected if any of them become rejected.
-*/
-function hash(object, label) {
-  if (object === null || typeof object !== 'object') {
-    return Promise.reject(new TypeError("Promise.hash must be called with an object"), label);
-  }
-
-  return new PromiseHash(Promise, object, label).promise;
-}
-
-function _possibleConstructorReturn$2(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits$2(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var HashSettled = function (_PromiseHash) {
-  _inherits$2(HashSettled, _PromiseHash);
-
-  function HashSettled(Constructor, object, label) {
-    return _possibleConstructorReturn$2(this, _PromiseHash.call(this, Constructor, object, false, label));
-  }
-
-  return HashSettled;
-}(PromiseHash);
-
-HashSettled.prototype._setResultAt = setSettledResult;
-
-/**
-  `RSVP.hashSettled` is similar to `RSVP.allSettled`, but takes an object
-  instead of an array for its `promises` argument.
-
-  Unlike `RSVP.all` or `RSVP.hash`, which implement a fail-fast method,
-  but like `RSVP.allSettled`, `hashSettled` waits until all the
-  constituent promises have returned and then shows you all the results
-  with their states and values/reasons. This is useful if you want to
-  handle multiple promises' failure states together as a set.
-
-  Returns a promise that is fulfilled when all the given promises have been
-  settled, or rejected if the passed parameters are invalid.
-
-  The returned promise is fulfilled with a hash that has the same key names as
-  the `promises` object argument. If any of the values in the object are not
-  promises, they will be copied over to the fulfilled object and marked with state
-  'fulfilled'.
-
-  Example:
-
-  ```javascript
-  let promises = {
-    myPromise: RSVP.Promise.resolve(1),
-    yourPromise: RSVP.Promise.resolve(2),
-    theirPromise: RSVP.Promise.resolve(3),
-    notAPromise: 4
-  };
-
-  RSVP.hashSettled(promises).then(function(hash){
-    // hash here is an object that looks like:
-    // {
-    //   myPromise: { state: 'fulfilled', value: 1 },
-    //   yourPromise: { state: 'fulfilled', value: 2 },
-    //   theirPromise: { state: 'fulfilled', value: 3 },
-    //   notAPromise: { state: 'fulfilled', value: 4 }
-    // }
-  });
-  ```
-
-  If any of the `promises` given to `RSVP.hash` are rejected, the state will
-  be set to 'rejected' and the reason for rejection provided.
-
-  Example:
-
-  ```javascript
-  let promises = {
-    myPromise: RSVP.Promise.resolve(1),
-    rejectedPromise: RSVP.Promise.reject(new Error('rejection')),
-    anotherRejectedPromise: RSVP.Promise.reject(new Error('more rejection')),
-  };
-
-  RSVP.hashSettled(promises).then(function(hash){
-    // hash here is an object that looks like:
-    // {
-    //   myPromise:              { state: 'fulfilled', value: 1 },
-    //   rejectedPromise:        { state: 'rejected', reason: Error },
-    //   anotherRejectedPromise: { state: 'rejected', reason: Error },
-    // }
-    // Note that for rejectedPromise, reason.message == 'rejection',
-    // and for anotherRejectedPromise, reason.message == 'more rejection'.
-  });
-  ```
-
-  An important note: `RSVP.hashSettled` is intended for plain JavaScript objects that
-  are just a set of keys and values. `RSVP.hashSettled` will NOT preserve prototype
-  chains.
-
-  Example:
-
-  ```javascript
-  function MyConstructor(){
-    this.example = RSVP.Promise.resolve('Example');
-  }
-
-  MyConstructor.prototype = {
-    protoProperty: RSVP.Promise.resolve('Proto Property')
-  };
-
-  let myObject = new MyConstructor();
-
-  RSVP.hashSettled(myObject).then(function(hash){
-    // protoProperty will not be present, instead you will just have an
-    // object that looks like:
-    // {
-    //   example: { state: 'fulfilled', value: 'Example' }
-    // }
-    //
-    // hash.hasOwnProperty('protoProperty'); // false
-    // 'undefined' === typeof hash.protoProperty
-  });
-  ```
-
-  @method hashSettled
-  @for RSVP
-  @param {Object} object
-  @param {String} label optional string that describes the promise.
-  Useful for tooling.
-  @return {Promise} promise that is fulfilled when when all properties of `promises`
-  have been settled.
-  @static
-*/
-
-function hashSettled(object, label) {
-  if (object === null || typeof object !== 'object') {
-    return Promise.reject(new TypeError("RSVP.hashSettled must be called with an object"), label);
-  }
-
-  return new HashSettled(Promise, object, false, label).promise;
-}
-
-/**
-  `RSVP.rethrow` will rethrow an error on the next turn of the JavaScript event
-  loop in order to aid debugging.
-
-  Promises A+ specifies that any exceptions that occur with a promise must be
-  caught by the promises implementation and bubbled to the last handler. For
-  this reason, it is recommended that you always specify a second rejection
-  handler function to `then`. However, `RSVP.rethrow` will throw the exception
-  outside of the promise, so it bubbles up to your console if in the browser,
-  or domain/cause uncaught exception in Node. `rethrow` will also throw the
-  error again so the error can be handled by the promise per the spec.
-
-  ```javascript
-  function throws(){
-    throw new Error('Whoops!');
-  }
-
-  let promise = new RSVP.Promise(function(resolve, reject){
-    throws();
-  });
-
-  promise.catch(RSVP.rethrow).then(function(){
-    // Code here doesn't run because the promise became rejected due to an
-    // error!
-  }, function (err){
-    // handle the error here
-  });
-  ```
-
-  The 'Whoops' error will be thrown on the next turn of the event loop
-  and you can watch for it in your console. You can also handle it using a
-  rejection handler given to `.then` or `.catch` on the returned promise.
-
-  @method rethrow
-  @static
-  @for RSVP
-  @param {Error} reason reason the promise became rejected.
-  @throws Error
-  @static
-*/
-function rethrow(reason) {
-  setTimeout(function () {
-    throw reason;
-  });
-  throw reason;
-}
-
-/**
-  `RSVP.defer` returns an object similar to jQuery's `$.Deferred`.
-  `RSVP.defer` should be used when porting over code reliant on `$.Deferred`'s
-  interface. New code should use the `RSVP.Promise` constructor instead.
-
-  The object returned from `RSVP.defer` is a plain object with three properties:
-
-  * promise - an `RSVP.Promise`.
-  * reject - a function that causes the `promise` property on this object to
-    become rejected
-  * resolve - a function that causes the `promise` property on this object to
-    become fulfilled.
-
-  Example:
-
-   ```javascript
-   let deferred = RSVP.defer();
-
-   deferred.resolve("Success!");
-
-   deferred.promise.then(function(value){
-     // value here is "Success!"
-   });
-   ```
-
-  @method defer
-  @static
-  @for RSVP
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @return {Object}
- */
-
-function defer(label) {
-  var deferred = { resolve: undefined, reject: undefined };
-
-  deferred.promise = new Promise(function (resolve, reject) {
-    deferred.resolve = resolve;
-    deferred.reject = reject;
-  }, label);
-
-  return deferred;
-}
-
-function _possibleConstructorReturn$3(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits$3(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var MapEnumerator = function (_Enumerator) {
-  _inherits$3(MapEnumerator, _Enumerator);
-
-  function MapEnumerator(Constructor, entries, mapFn, label) {
-    return _possibleConstructorReturn$3(this, _Enumerator.call(this, Constructor, entries, true, label, mapFn));
-  }
-
-  MapEnumerator.prototype._init = function _init(Constructor, input, bool, label, mapFn) {
-    var len = input.length || 0;
-    this.length = len;
-    this._remaining = len;
-    this._result = new Array(len);
-    this._mapFn = mapFn;
-
-    this._enumerate(input);
-  };
-
-  MapEnumerator.prototype._setResultAt = function _setResultAt(state, i, value, firstPass) {
-    if (firstPass) {
-      var val = tryCatch(this._mapFn)(value, i);
-      if (val === TRY_CATCH_ERROR) {
-        this._settledAt(REJECTED, i, val.error, false);
-      } else {
-        this._eachEntry(val, i, false);
-      }
-    } else {
-      this._remaining--;
-      this._result[i] = value;
-    }
-  };
-
-  return MapEnumerator;
-}(Enumerator);
-
-/**
- `RSVP.map` is similar to JavaScript's native `map` method. `mapFn` is eagerly called
-  meaning that as soon as any promise resolves its value will be passed to `mapFn`.
-  `RSVP.map` returns a promise that will become fulfilled with the result of running
-  `mapFn` on the values the promises become fulfilled with.
-
-  For example:
-
-  ```javascript
-
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.resolve(2);
-  let promise3 = RSVP.resolve(3);
-  let promises = [ promise1, promise2, promise3 ];
-
-  let mapFn = function(item){
-    return item + 1;
-  };
-
-  RSVP.map(promises, mapFn).then(function(result){
-    // result is [ 2, 3, 4 ]
-  });
-  ```
-
-  If any of the `promises` given to `RSVP.map` are rejected, the first promise
-  that is rejected will be given as an argument to the returned promise's
-  rejection handler. For example:
-
-  ```javascript
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.reject(new Error('2'));
-  let promise3 = RSVP.reject(new Error('3'));
-  let promises = [ promise1, promise2, promise3 ];
-
-  let mapFn = function(item){
-    return item + 1;
-  };
-
-  RSVP.map(promises, mapFn).then(function(array){
-    // Code here never runs because there are rejected promises!
-  }, function(reason) {
-    // reason.message === '2'
-  });
-  ```
-
-  `RSVP.map` will also wait if a promise is returned from `mapFn`. For example,
-  say you want to get all comments from a set of blog posts, but you need
-  the blog posts first because they contain a url to those comments.
-
-  ```javscript
-
-  let mapFn = function(blogPost){
-    // getComments does some ajax and returns an RSVP.Promise that is fulfilled
-    // with some comments data
-    return getComments(blogPost.comments_url);
-  };
-
-  // getBlogPosts does some ajax and returns an RSVP.Promise that is fulfilled
-  // with some blog post data
-  RSVP.map(getBlogPosts(), mapFn).then(function(comments){
-    // comments is the result of asking the server for the comments
-    // of all blog posts returned from getBlogPosts()
-  });
-  ```
-
-  @method map
-  @static
-  @for RSVP
-  @param {Array} promises
-  @param {Function} mapFn function to be called on each fulfilled promise.
-  @param {String} label optional string for labeling the promise.
-  Useful for tooling.
-  @return {Promise} promise that is fulfilled with the result of calling
-  `mapFn` on each fulfilled promise or value when they become fulfilled.
-   The promise will be rejected if any of the given `promises` become rejected.
-  @static
-*/
-
-
-function map(promises, mapFn, label) {
-  if (!Array.isArray(promises)) {
-    return Promise.reject(new TypeError("RSVP.map must be called with an array"), label);
-  }
-
-  if (typeof mapFn !== 'function') {
-    return Promise.reject(new TypeError("RSVP.map expects a function as a second argument"), label);
-  }
-
-  return new MapEnumerator(Promise, promises, mapFn, label).promise;
-}
-
-/**
-  This is a convenient alias for `RSVP.Promise.resolve`.
-
-  @method resolve
-  @static
-  @for RSVP
-  @param {*} value value that the returned promise will be resolved with
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise that will become fulfilled with the given
-  `value`
-*/
-function resolve$2(value, label) {
-  return Promise.resolve(value, label);
-}
-
-/**
-  This is a convenient alias for `RSVP.Promise.reject`.
-
-  @method reject
-  @static
-  @for RSVP
-  @param {*} reason value that the returned promise will be rejected with.
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise rejected with the given `reason`.
-*/
-function reject$2(reason, label) {
-  return Promise.reject(reason, label);
-}
-
-function _possibleConstructorReturn$4(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits$4(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var EMPTY_OBJECT = {};
-
-var FilterEnumerator = function (_Enumerator) {
-  _inherits$4(FilterEnumerator, _Enumerator);
-
-  function FilterEnumerator(Constructor, entries, filterFn, label) {
-    return _possibleConstructorReturn$4(this, _Enumerator.call(this, Constructor, entries, true, label, filterFn));
-  }
-
-  FilterEnumerator.prototype._init = function _init(Constructor, input, bool, label, filterFn) {
-    var len = input.length || 0;
-    this.length = len;
-    this._remaining = len;
-
-    this._result = new Array(len);
-    this._filterFn = filterFn;
-
-    this._enumerate(input);
-  };
-
-  FilterEnumerator.prototype._checkFullfillment = function _checkFullfillment() {
-    if (this._remaining === 0) {
-      this._result = this._result.filter(function (val) {
-        return val !== EMPTY_OBJECT;
-      });
-      fulfill(this.promise, this._result);
-    }
-  };
-
-  FilterEnumerator.prototype._setResultAt = function _setResultAt(state, i, value, firstPass) {
-    if (firstPass) {
-      this._result[i] = value;
-      var val = tryCatch(this._filterFn)(value, i);
-      if (val === TRY_CATCH_ERROR) {
-        this._settledAt(REJECTED, i, val.error, false);
-      } else {
-        this._eachEntry(val, i, false);
-      }
-    } else {
-      this._remaining--;
-      if (!value) {
-        this._result[i] = EMPTY_OBJECT;
-      }
-    }
-  };
-
-  return FilterEnumerator;
-}(Enumerator);
-
-/**
- `RSVP.filter` is similar to JavaScript's native `filter` method.
- `filterFn` is eagerly called meaning that as soon as any promise
-  resolves its value will be passed to `filterFn`. `RSVP.filter` returns
-  a promise that will become fulfilled with the result of running
-  `filterFn` on the values the promises become fulfilled with.
-
-  For example:
-
-  ```javascript
-
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.resolve(2);
-  let promise3 = RSVP.resolve(3);
-
-  let promises = [promise1, promise2, promise3];
-
-  let filterFn = function(item){
-    return item > 1;
-  };
-
-  RSVP.filter(promises, filterFn).then(function(result){
-    // result is [ 2, 3 ]
-  });
-  ```
-
-  If any of the `promises` given to `RSVP.filter` are rejected, the first promise
-  that is rejected will be given as an argument to the returned promise's
-  rejection handler. For example:
-
-  ```javascript
-  let promise1 = RSVP.resolve(1);
-  let promise2 = RSVP.reject(new Error('2'));
-  let promise3 = RSVP.reject(new Error('3'));
-  let promises = [ promise1, promise2, promise3 ];
-
-  let filterFn = function(item){
-    return item > 1;
-  };
-
-  RSVP.filter(promises, filterFn).then(function(array){
-    // Code here never runs because there are rejected promises!
-  }, function(reason) {
-    // reason.message === '2'
-  });
-  ```
-
-  `RSVP.filter` will also wait for any promises returned from `filterFn`.
-  For instance, you may want to fetch a list of users then return a subset
-  of those users based on some asynchronous operation:
-
-  ```javascript
-
-  let alice = { name: 'alice' };
-  let bob   = { name: 'bob' };
-  let users = [ alice, bob ];
-
-  let promises = users.map(function(user){
-    return RSVP.resolve(user);
-  });
-
-  let filterFn = function(user){
-    // Here, Alice has permissions to create a blog post, but Bob does not.
-    return getPrivilegesForUser(user).then(function(privs){
-      return privs.can_create_blog_post === true;
-    });
-  };
-  RSVP.filter(promises, filterFn).then(function(users){
-    // true, because the server told us only Alice can create a blog post.
-    users.length === 1;
-    // false, because Alice is the only user present in `users`
-    users[0] === bob;
-  });
-  ```
-
-  @method filter
-  @static
-  @for RSVP
-  @param {Array} promises
-  @param {Function} filterFn - function to be called on each resolved value to
-  filter the final results.
-  @param {String} label optional string describing the promise. Useful for
-  tooling.
-  @return {Promise}
-*/
-
-function filter(promises, filterFn, label) {
-  if (!Array.isArray(promises) && !(promises !== null && typeof promises === 'object' && promises.then !== undefined)) {
-    return Promise.reject(new TypeError("RSVP.filter must be called with an array or promise"), label);
-  }
-
-  if (typeof filterFn !== 'function') {
-    return Promise.reject(new TypeError("RSVP.filter expects function as a second argument"), label);
-  }
-
-  return Promise.resolve(promises, label).then(function (promises) {
-    return new FilterEnumerator(Promise, promises, filterFn, label).promise;
-  });
-}
-
-var len = 0;
-var vertxNext = void 0;
-function asap(callback, arg) {
-  queue$1[len] = callback;
-  queue$1[len + 1] = arg;
-  len += 2;
-  if (len === 2) {
-    // If len is 1, that means that we need to schedule an async flush.
-    // If additional callbacks are queued before the queue is flushed, they
-    // will be processed by this flush that we are scheduling.
-    scheduleFlush$1();
-  }
-}
-
-var browserWindow = typeof window !== 'undefined' ? window : undefined;
-var browserGlobal = browserWindow || {};
-var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-var isNode = typeof self === 'undefined' && typeof process !== 'undefined' && {}.toString.call(process) === '[object process]';
-
-// test for web worker but not in IE10
-var isWorker = typeof Uint8ClampedArray !== 'undefined' && typeof importScripts !== 'undefined' && typeof MessageChannel !== 'undefined';
-
-// node
-function useNextTick() {
-  var nextTick = process.nextTick;
-  // node version 0.10.x displays a deprecation warning when nextTick is used recursively
-  // setImmediate should be used instead instead
-  var version = process.versions.node.match(/^(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)$/);
-  if (Array.isArray(version) && version[1] === '0' && version[2] === '10') {
-    nextTick = setImmediate;
-  }
-  return function () {
-    return nextTick(flush);
-  };
-}
-
-// vertx
-function useVertxTimer() {
-  if (typeof vertxNext !== 'undefined') {
-    return function () {
-      vertxNext(flush);
-    };
-  }
-  return useSetTimeout();
-}
-
-function useMutationObserver() {
-  var iterations = 0;
-  var observer = new BrowserMutationObserver(flush);
-  var node = document.createTextNode('');
-  observer.observe(node, { characterData: true });
-
-  return function () {
-    return node.data = iterations = ++iterations % 2;
-  };
-}
-
-// web worker
-function useMessageChannel() {
-  var channel = new MessageChannel();
-  channel.port1.onmessage = flush;
-  return function () {
-    return channel.port2.postMessage(0);
-  };
-}
-
-function useSetTimeout() {
-  return function () {
-    return setTimeout(flush, 1);
-  };
-}
-
-var queue$1 = new Array(1000);
-
-function flush() {
-  for (var i = 0; i < len; i += 2) {
-    var callback = queue$1[i];
-    var arg = queue$1[i + 1];
-
-    callback(arg);
-
-    queue$1[i] = undefined;
-    queue$1[i + 1] = undefined;
-  }
-
-  len = 0;
-}
-
-function attemptVertex() {
-  try {
-    var r = require;
-    var vertx = r('vertx');
-    vertxNext = vertx.runOnLoop || vertx.runOnContext;
-    return useVertxTimer();
-  } catch (e) {
-    return useSetTimeout();
-  }
-}
-
-var scheduleFlush$1 = void 0;
-// Decide what async method to use to triggering processing of queued callbacks:
-if (isNode) {
-  scheduleFlush$1 = useNextTick();
-} else if (BrowserMutationObserver) {
-  scheduleFlush$1 = useMutationObserver();
-} else if (isWorker) {
-  scheduleFlush$1 = useMessageChannel();
-} else if (browserWindow === undefined && typeof require === 'function') {
-  scheduleFlush$1 = attemptVertex();
-} else {
-  scheduleFlush$1 = useSetTimeout();
-}
-
-var platform = void 0;
-
-/* global self */
-if (typeof self === 'object') {
-  platform = self;
-
-  /* global global */
-} else if (typeof global === 'object') {
-  platform = global;
-} else {
-  throw new Error('no global: `self` or `global` found');
-}
-
-var _asap$cast$Promise$Ev;
-
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-
-// defaults
-config.async = asap;
-config.after = function (cb) {
-  return setTimeout(cb, 0);
-};
-var cast = resolve$2;
-
-var async = function (callback, arg) {
-  return config.async(callback, arg);
-};
-
-function on() {
-  config['on'].apply(config, arguments);
-}
-
-function off() {
-  config['off'].apply(config, arguments);
-}
-
-// Set up instrumentation through `window.__PROMISE_INTRUMENTATION__`
-if (typeof window !== 'undefined' && typeof window['__PROMISE_INSTRUMENTATION__'] === 'object') {
-  var callbacks = window['__PROMISE_INSTRUMENTATION__'];
-  configure('instrument', true);
-  for (var eventName in callbacks) {
-    if (callbacks.hasOwnProperty(eventName)) {
-      on(eventName, callbacks[eventName]);
-    }
-  }
-}
-
-// the default export here is for backwards compat:
-//   https://github.com/tildeio/rsvp.js/issues/434
-var rsvp = (_asap$cast$Promise$Ev = {
-  asap: asap,
-  cast: cast,
-  Promise: Promise,
-  EventTarget: EventTarget,
-  all: all$1,
-  allSettled: allSettled,
-  race: race$1,
-  hash: hash,
-  hashSettled: hashSettled,
-  rethrow: rethrow,
-  defer: defer,
-  denodeify: denodeify,
-  configure: configure,
-  on: on,
-  off: off,
-  resolve: resolve$2,
-  reject: reject$2,
-  map: map
-}, _defineProperty(_asap$cast$Promise$Ev, 'async', async), _defineProperty(_asap$cast$Promise$Ev, 'filter', filter), _asap$cast$Promise$Ev);
-
-exports['default'] = rsvp;
-exports.asap = asap;
-exports.cast = cast;
-exports.Promise = Promise;
-exports.EventTarget = EventTarget;
-exports.all = all$1;
-exports.allSettled = allSettled;
-exports.race = race$1;
-exports.hash = hash;
-exports.hashSettled = hashSettled;
-exports.rethrow = rethrow;
-exports.defer = defer;
-exports.denodeify = denodeify;
-exports.configure = configure;
-exports.on = on;
-exports.off = off;
-exports.resolve = resolve$2;
-exports.reject = reject$2;
-exports.map = map;
-exports.async = async;
-exports.filter = filter;
-
-Object.defineProperty(exports, '__esModule', { value: true });
-
-})));
-
-
-
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":7}],6:[function(require,module,exports){
+},{"./angular":5}],7:[function(require,module,exports){
 require("angular");
-var RSVP = require("rsvp");
 
-var app = angular.module("hackApp", [require("angular-route")]);
+var app = angular.module("hackApp", [require("angular-route"), require("angular-localforage")]);
 
 app.config(function($routeProvider) {
 	$routeProvider
@@ -37726,30 +37987,48 @@ app.config(function($routeProvider) {
 // 	});
 // });
 
-app.controller("chatCtrl", function($scope, $timeout) {
+app.controller("chatCtrl", function($scope, $timeout, $localForage, $window) {
 	$scope.messages = [];
-	$(".messenger-block").css("bottom", $(".primary-navbar").height() + "px");
-	$(".chat-window").css("height", $(document).height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
-	$scope.sendMessage = function() {
-		$scope.messages.push({
-			user: "user",
-			text: $scope.messageText
-		});
-		switch ($scope.messageText) {
+	$scope.doAction = function(content) {
+		switch (content.toLowerCase().trim()) {
 			case "forget":
-				$scope.botSays("Okay, bye bye!");
+				$scope.botSays("Okay, bye bye!").then(function() {
+					$localForage.setItem("messages", null).then(function() {
+						$scope.messages = null;
+						$window.location.reload();
+					});
+				});
+				break;
+			case "refresh":
+				$scope.botSays("Sounds good, refreshing the app.").then(function() {
+					$window.location.reload();
+				});
 				break;
 			default:
+				$scope.botSays(randomFromArray(["👍", "🤔", "🤷"]));
 				break;
+		}
+	}
+	$scope.sendMessage = function() {
+		if ($scope.messageText) {
+			$scope.doAction($scope.messageText);
+			$scope.messages.push({
+				user: "user",
+				text: $scope.messageText
+			});
 		}
 		$scope.messageText = "";
 		$scope.scrollToBottom();
+		$scope.saveMessages();
 	};
 	$scope.scrollToBottom = function() {
 		$(".chat-window").animate({ scrollTop: $(".chat-window").prop("scrollHeight") }, 500);
 	};
-	$scope.botSays = function(text) {
+	$scope.botSays = function(text, action) {
 		$(".typing-chatbox").show();
+		$timeout(function() {
+			$scope.scrollToBottom();
+		}, 1);
 		return new Promise((resolve, reject) => {
 			$timeout(function() {
 				$(".typing-chatbox").hide();
@@ -37757,205 +38036,35 @@ app.controller("chatCtrl", function($scope, $timeout) {
 					user: "bot",
 					text: text
 				});
+				$scope.scrollToBottom();
+				$scope.currentAction = "name";
+				$scope.saveMessages();
 				$timeout(resolve, 1000);
 			}, 1500);
 		});
 	}
-	$scope.sayHello = function() {
-		$scope.botSays("Hey stranger!").then(function() {
-			$scope.botSays("Welcome to the App. What should I call you?");
-		});
+	$scope.saveMessages = function() {
+		console.log($scope.messages);
+		$localForage.setItem("messages", $scope.messages);
+		$localForage.setItem("currentAction", $scope.currentAction);
 	};
-	$scope.sayHello();
+	$localForage.getItem("messages").then(function(messages) {
+		if (messages) {
+			$scope.messages = messages;
+			$scope.scrollToBottom();
+		} else {
+			$scope.botSays("Hey stranger!").then(function() {
+				$scope.botSays("Welcome to the App. What should I call you?");
+			});
+		}
+	});
 });
 
 window.onload = function() {
-	$(".chat-window").css("height", $(document).height() - $(".messenger-block").height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
-}
-},{"angular":4,"angular-route":2,"rsvp":5}],7:[function(require,module,exports){
-// shim for using process in browser
-var process = module.exports = {};
-
-// cached from whatever global is present so that test runners that stub it
-// don't break things.  But we need to wrap it in a try catch in case it is
-// wrapped in strict mode code which doesn't define any globals.  It's inside a
-// function because try/catches deoptimize in certain engines.
-
-var cachedSetTimeout;
-var cachedClearTimeout;
-
-function defaultSetTimout() {
-    throw new Error('setTimeout has not been defined');
-}
-function defaultClearTimeout () {
-    throw new Error('clearTimeout has not been defined');
-}
-(function () {
-    try {
-        if (typeof setTimeout === 'function') {
-            cachedSetTimeout = setTimeout;
-        } else {
-            cachedSetTimeout = defaultSetTimout;
-        }
-    } catch (e) {
-        cachedSetTimeout = defaultSetTimout;
-    }
-    try {
-        if (typeof clearTimeout === 'function') {
-            cachedClearTimeout = clearTimeout;
-        } else {
-            cachedClearTimeout = defaultClearTimeout;
-        }
-    } catch (e) {
-        cachedClearTimeout = defaultClearTimeout;
-    }
-} ())
-function runTimeout(fun) {
-    if (cachedSetTimeout === setTimeout) {
-        //normal enviroments in sane situations
-        return setTimeout(fun, 0);
-    }
-    // if setTimeout wasn't available but was latter defined
-    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
-        cachedSetTimeout = setTimeout;
-        return setTimeout(fun, 0);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedSetTimeout(fun, 0);
-    } catch(e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
-            return cachedSetTimeout.call(null, fun, 0);
-        } catch(e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
-            return cachedSetTimeout.call(this, fun, 0);
-        }
-    }
-
-
-}
-function runClearTimeout(marker) {
-    if (cachedClearTimeout === clearTimeout) {
-        //normal enviroments in sane situations
-        return clearTimeout(marker);
-    }
-    // if clearTimeout wasn't available but was latter defined
-    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
-        cachedClearTimeout = clearTimeout;
-        return clearTimeout(marker);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedClearTimeout(marker);
-    } catch (e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
-            return cachedClearTimeout.call(null, marker);
-        } catch (e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
-            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
-            return cachedClearTimeout.call(this, marker);
-        }
-    }
-
-
-
-}
-var queue = [];
-var draining = false;
-var currentQueue;
-var queueIndex = -1;
-
-function cleanUpNextTick() {
-    if (!draining || !currentQueue) {
-        return;
-    }
-    draining = false;
-    if (currentQueue.length) {
-        queue = currentQueue.concat(queue);
-    } else {
-        queueIndex = -1;
-    }
-    if (queue.length) {
-        drainQueue();
-    }
+	// $(".chat-window").css("height", $(document).height() - $(".messenger-block").height() - $(".primary-header").height() - $(".primary-navbar").height() - 5 + "px");
 }
 
-function drainQueue() {
-    if (draining) {
-        return;
-    }
-    var timeout = runTimeout(cleanUpNextTick);
-    draining = true;
-
-    var len = queue.length;
-    while(len) {
-        currentQueue = queue;
-        queue = [];
-        while (++queueIndex < len) {
-            if (currentQueue) {
-                currentQueue[queueIndex].run();
-            }
-        }
-        queueIndex = -1;
-        len = queue.length;
-    }
-    currentQueue = null;
-    draining = false;
-    runClearTimeout(timeout);
+function randomFromArray(items) {
+	return items[Math.floor(Math.random() * items.length)];
 }
-
-process.nextTick = function (fun) {
-    var args = new Array(arguments.length - 1);
-    if (arguments.length > 1) {
-        for (var i = 1; i < arguments.length; i++) {
-            args[i - 1] = arguments[i];
-        }
-    }
-    queue.push(new Item(fun, args));
-    if (queue.length === 1 && !draining) {
-        runTimeout(drainQueue);
-    }
-};
-
-// v8 likes predictible objects
-function Item(fun, array) {
-    this.fun = fun;
-    this.array = array;
-}
-Item.prototype.run = function () {
-    this.fun.apply(null, this.array);
-};
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-process.version = ''; // empty string to avoid regexp issues
-process.versions = {};
-
-function noop() {}
-
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
-process.prependListener = noop;
-process.prependOnceListener = noop;
-
-process.listeners = function (name) { return [] }
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-};
-
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-process.umask = function() { return 0; };
-
-},{}]},{},[6]);
+},{"angular":6,"angular-localforage":1,"angular-route":4}]},{},[7]);

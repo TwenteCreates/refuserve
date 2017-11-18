@@ -29,19 +29,23 @@
 
 	<body>
 
-		<main id="content" ng-view></main>
+		<div class="d-flex flex-column justify-content-between" style="height: 100vh">
+			
+			<main id="content" class="d-flex flex-column justify-content-between" style="height: 100vh" ng-view></main>
 
-		<nav class="primary-navbar text-center">
-			<ul class="d-flex align-items-center justify-content-around">
-				<li><a ng-href="./#!/a"><i class="ion ion-md-document"></i>R&eacute;sum&eacute;</a></li>
-				<li><a ng-href="./#!/a"><i class="ion ion-md-school"></i>Learn</a></li>
-				<li><a ng-href="./#!/">
-					<img alt="Logo" src="android-chrome-192x192.png">
-				</a></li>
-				<li><a ng-href="./#!/a"><i class="ion ion-md-person"></i>Profile</a></li>
-				<li><a ng-href="./#!/a"><i class="ion ion-md-settings"></i>Settings</a></li>
-			</ul>
-		</nav>
+			<nav class="primary-navbar text-center">
+				<ul class="d-flex align-items-center justify-content-around">
+					<li><a ng-href="./#!/a"><i class="ion ion-md-document"></i>R&eacute;sum&eacute;</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-school"></i>Learn</a></li>
+					<li><a ng-href="./#!/">
+						<img alt="Logo" src="android-chrome-192x192.png">
+					</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-person"></i>Profile</a></li>
+					<li><a ng-href="./#!/a"><i class="ion ion-md-settings"></i>Settings</a></li>
+				</ul>
+			</nav>
+		
+		</div>
 
 		<script src="https://code.jquery.com/jquery-3.2.1.min.js" ></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js" integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh" crossorigin="anonymous"></script>
