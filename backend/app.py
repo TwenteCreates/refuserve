@@ -9,7 +9,7 @@ CORS(app)
 
 from pymongo import MongoClient
 
-client = MongoClient('x.x.x.x', 27017)
+client = MongoClient('127.0.0.1', 27017)
 db = client.test_database
 collection = db.chats1
 collection2 = db.users1
@@ -129,6 +129,7 @@ def delete_user():
         db.users1.drop()
     return jsonify({})
 
+#tested
 translator = Translator()
 @app.route('/translate', methods=['GET'])
 def translate_api_call():
@@ -140,7 +141,7 @@ def translate_api_call():
     resp['value'] = x.text
     return jsonify(resp)
 
-
+#tested
 @app.route('/')
 def hello_world():
     return 'Hello from Flask!'
