@@ -191,15 +191,16 @@ def get_audio_for_youtube_link():
     #                  '--scc_lang', lang])
     # 3. tts the transcript
     import codecs
+    file_contents = ""
     with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
         file_contents = f.read()
-    # file_contents = open(, encoding='utf-8').read()
-    tts = gTTS(text=file_contents, lang=lang, slow=False)
-    mp3_filename = '%s.mp3' %(filename)
-    tts.save(mp3_filename)
-    x = storage.upload(mp3_filename)
-    import os; os.remove(mp3_filename)
-    resp['audio'] = url_for("download", object_name=x.full_url)
+    resp['transcript'] = file_contents
+    # tts = gTTS(text=file_contents, lang=lang, slow=False)
+    # mp3_filename = '%s.mp3' %(filename)
+    # tts.save(mp3_filename)
+    # x = storage.upload(mp3_filename)
+    # import os; os.remove(mp3_filename)
+    # resp['audio'] = url_for("download", object_name=x.full_url)
     return jsonify(resp)
 
 @app.route("/download/<path:object_name>")

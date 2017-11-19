@@ -37,20 +37,20 @@ def recommendJobs(mySkills):
                 distance=levenshteinDistance(mySkill.replace(' ','').lower().strip(), skill.replace(' ','').lower().strip())
                 if (distance<=2):
                     count+=1
-        if(count>=threshold):   
+        if(count>=threshold):
             suggestedJobs.append(job['title'])
-        matchCount.append(count)   
-       
+        matchCount.append(count)
+
     if(max(matchCount)==0):
         for job in jobs:
             suggestedJobs.append(job['title'])
-        
+
     elif(len(suggestedJobs)==0):
         maxValue=max(matchCount)
         indices = [i for i, x in enumerate(matchCount) if x == maxValue]
         for index in indices:
             suggestedJobs.append(jobs[index]['title'])
-           
+
 
     return suggestedJobs
 
@@ -69,7 +69,7 @@ def recommendVideos(myJob,mySkills,lang):
                 flag=1
         if (flag==0):
             toLearnSkills.append(skill)
-   
+
     options=dict()
     youtubeResults=[]
     cachedFiles=os.listdir("cache")
@@ -85,7 +85,7 @@ def recommendVideos(myJob,mySkills,lang):
         else:
              youtubeResults.append(json.load(open('cache/'+toLearnSkill+".json")))
 
-        
+
     print (youtubeResults)
     return youtubeResults
-    
+
