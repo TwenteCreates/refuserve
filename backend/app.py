@@ -185,6 +185,10 @@ def get_audio_for_youtube_link():
 
         # Replace the target string
         filedata = filedata.replace('>', '> ')
+        filedata = filedata.replace(',', ', ')
+        filedata = filedata.replace('.', '. ')
+        filedata = filedata.replace(';', '; ')
+        filedata = filedata.replace('!', '! ')
 
         # Write the file out again
         with open(vtt_fullname, 'w') as file:
