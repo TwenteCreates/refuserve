@@ -57,6 +57,7 @@ def recommendVideos(userJob):
         youtube_search(options)
         print('\n')
     print (toLearnSkills)
+    return toLearnSkills
     
     
     
