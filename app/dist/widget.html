@@ -1,0 +1,770 @@
+
+<style>
+	.agastya header {
+		background: #fff;
+		color: #000;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+		height: 50px;
+		line-height: 50px;
+		padding-left: 15px;
+		position: relative;
+		z-index: 1;
+		font-weight: bold;
+		text-transform: capitalize;
+	}
+	.agastya a {
+		color: inherit;
+		font-weight: bold;
+		text-decoration: none;
+	}
+	.agastya main, .agastya .page {
+		position: absolute;
+		top: 50px;
+		bottom: 0;
+		left: 0; right: 0;
+		overflow: auto;
+		padding: 15px;
+	}
+	.agastya main > button, .agastya button.a-third {
+		margin-bottom: 15px;
+		font: inherit;
+		border: 1px solid rgba(0, 0, 0, 0.03);
+		width: calc(50% - 7.5px);
+		float: left;
+		margin-right: 15px;
+		padding: 25px 10px;
+		box-sizing: border-box;
+		text-align: center;
+		position: relative;
+		transition: 0.3s;
+		cursor: pointer;
+	}
+	.agastya main > button.selected::after {
+		content: "";
+		width: 30px; height: 30px;
+		background-image: url("https://cdn.oswald.foundation/tick.svg");
+		background-size: 100% 100%;
+		position: absolute;
+		left: 10px; top: 10px;
+	}
+	.agastya main > button.inverted.selected::after {
+		filter: invert(1);
+	}
+	.agastya .translate button img { transition: 0.3s; }
+	.agastya main button:hover, .agastya main button:focus,
+	.agastya .translate button:hover img, .agastya .translate button:focus img,
+	.agastya .dyslexia button:hover, .agastya .dyslexia button:focus,
+	.agastya button.a-third:hover, .agastya button.a-third:focus {
+		box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+		transform: scale(1.03)
+	}
+	.agastya main button:nth-child(2n) {
+		margin-right: 0;
+	}
+	.agastya main button span {
+		display: block;
+	}
+	.agastya main button i {
+		display: block;
+		font-size: 32px;
+	}
+	.agastya main button img {
+		height: 50px;
+		margin-top: -5px;
+	}
+	.agastya footer {
+		line-height: 1.7;
+		font-size: 80%;
+		text-align: center;
+		clear: both;
+	}
+	.agastya header button {
+		font: inherit;
+		padding: 0;
+		line-height: 1;
+		display: none;
+		vertical-align: middle;
+		background: transparent;
+		height: 30px;
+		color: inherit;
+		margin-right: 5px;
+		overflow: hidden;
+		border: none;
+	}
+	.agastya header button svg {
+		height: 35px;
+	}
+	.agastya header button path {
+		fill: #fff;
+	}
+	.agastya .one-third {
+		width: calc((100% / 3) - 10px);
+		float: left;
+		margin-bottom: 15px;		
+		margin-right: 15px;
+	}
+	.agastya .one-third:nth-child(3n) {
+		margin-right: 0;
+	}
+	.agastya img { max-width: 100% }
+	.agastya .one-fourth {
+		width: calc((100% / 4) - 12.5px);
+		float: left;
+		margin-bottom: 15px;
+		margin-right: 15px;
+	}
+	.agastya .one-fourth:nth-child(4n) {
+		margin-right: 0;
+	}
+	.agastya .translate img {
+		border: 1px solid #eee;
+		box-sizing: border-box;
+	}
+	.agastya .tagbtn {
+		border: 1px solid #ddd;
+		font: inherit;
+		padding: 5px 10px;
+		margin-bottom: 8px;
+		display: inline-block;
+		border-radius: 5px;
+		background: #eee;
+	}
+	.agastya .page select {
+		width: 100%;
+		background: #eee;
+		padding: 10px;
+		height: 40px;
+		font: inherit;
+		border: 1px solid #ddd;
+	}
+	.agastya .page input[type="radio"] { display: none }
+	.agastya .page input[type="radio"]:checked + label { background: #444; color: #fff; }
+	.agastya .page input[type="radio"]:checked + label::before {
+		content: "\002714";
+		margin-right: 7px;
+	}
+	.agastya .page .one-fourth button { width: 100%; padding: 0; border: none; }
+	.agastya hr { margin: 20px 0; clear: both;
+	border: none; border-bottom: 1px solid #ddd }
+	.agastya p { margin-top: 0 }
+	.agastya .page { display: none }
+	#goog-gt-tt,#google_translate_element2,.goog-te-banner-frame{display:none!important}.goog-te-menu-value:hover{text-decoration:none!important}body{top:0!important;min-height:auto!important}
+	.agastya .dyslexia button {
+		font: inherit;
+		font-size: 125%;
+		padding: 7px 0 !important;
+		border: 1px solid #eee !important;
+		transition: 0.3s;
+	}
+	.agastya .toggleElt {
+		display: none;
+		position: absolute;
+		right: 10px;
+		top: 10px;
+	}
+	.agastya .toggleElt input[type="checkbox"] {
+		display: none;
+	}
+	.agastya .toggleElt label {
+		cursor: pointer;
+		background: #ccc;
+		border-radius: 30px;
+		width: 60px;
+		line-height: 1;
+		height: 30px;
+	}
+	.agastya .toggleElt label::after {
+		content: "";
+		width: 20px;
+		height: 20px;
+		border-radius: 20px;
+		background: #fff;
+		position: absolute;
+		top: 5px;
+	}
+	.agastya .toggleElt label.checked {
+		background-color: #4cd964;
+	}
+	.agastya .toggleElt label.checked::after {
+		left: 35px;
+	}
+	.agastya .toggleElt label.unchecked::after {
+		left: 5px;
+	}
+	.agastya .toggleElt input[type="checkbox"] + .checker .checked,
+	.agastya .toggleElt input[type="checkbox"]:checked + .checker .unchecked {
+		display: none;
+	}
+	.agastya .toggleElt input[type="checkbox"] + .checker .unchecked,
+	.agastya .toggleElt input[type="checkbox"]:checked + .checker .checked {
+		display: block;
+	}
+	.agastya .page input[type="range"] {
+		width: 70%;
+	}
+	.agastya .page input[type="range"] {
+		-webkit-appearance: none;
+		margin: 10px 0;
+		width: 100%;
+	}
+	.agastya .page input[type="range"]:focus {
+		outline: none;
+	}
+	.agastya .page input[type="range"]::-webkit-slider-runnable-track {
+		width: 100%;
+		height: 12.8px;
+		cursor: pointer;
+		animate: 0.2s;
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+		background: #ccc;
+		border-radius: 25px;
+		border: 0px solid #000101;
+	}
+	.agastya .page input[type="range"]::-webkit-slider-thumb {
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+		border: 0px solid #000000;
+		height: 20px;
+		width: 20px;
+		border-radius: 20px;
+		background: #333;
+		cursor: pointer;
+		-webkit-appearance: none;
+		margin-top: -3.6px;
+	}
+	.agastya .page input[type="range"]:focus::-webkit-slider-runnable-track {
+		background: #ccc;
+	}
+	.agastya .page input[type="range"]::-moz-range-track {
+		width: 100%;
+		height: 12.8px;
+		cursor: pointer;
+		animate: 0.2s;
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+		background: #ccc;
+		border-radius: 25px;
+		border: 0px solid #000101;
+	}
+	.agastya .page input[type="range"]::-moz-range-thumb {
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+		border: 0px solid #000000;
+		height: 20px;
+		width: 20px;
+		border-radius: 20px;
+		background: #333;
+		cursor: pointer;
+	}
+	.agastya .page input[type="range"]::-ms-track {
+		width: 100%;
+		height: 12.8px;
+		cursor: pointer;
+		animate: 0.2s;
+		background: transparent;
+		border-color: transparent;
+		border-width: 39px 0;
+		color: transparent;
+	}
+	.agastya .page input[type="range"]::-ms-fill-lower {
+		background: #ccc;
+		border: 0px solid #000101;
+		border-radius: 50px;
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+	}
+	.agastya .page input[type="range"]::-ms-fill-upper {
+		background: #ccc;
+		border: 0px solid #000101;
+		border-radius: 50px;
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+	}
+	.agastya .page input[type="range"]::-ms-thumb {
+		box-shadow: 0px 0px 0px #000000, 0px 0px 0px #0d0d0d;
+		border: 0px solid #000000;
+		height: 20px;
+		width: 20px;
+		border-radius: 20px;
+		background: #333;
+		cursor: pointer;
+	}
+	.agastya .page input[type="range"]:focus::-ms-fill-lower {
+		background: #ccc;
+	}
+	.agastya .page input[type="range"]:focus::-ms-fill-upper {
+		background: #ccc;
+	}
+	.agastya button.a-third {
+		float: left;
+		width: calc((100% / 3) - 10px);
+		margin-right: 15px;
+		background: #eee;
+		font-size: 130%;
+		padding: 0;
+		height: 50px;
+	}
+	.agastya button.a-third:nth-child(3n) {
+		margin-right: 0;
+	}
+	.agastya button.a-third.font-large {
+		font-size: 140%;
+	}
+	.agastya button.a-third.font-small {
+		font-size: 110%;
+	}
+	.agastya .read-aloud .a-third {
+		height: auto;
+	}
+	.agastya .read-aloud .a-third img {
+		width: 50%;
+		margin: 10px 0;
+	}
+	.agastya .read-aloud .a-third small {
+		margin-bottom: 15px;
+		margin-top: -5px;
+		font-size: 75%;
+		display: block;
+	}
+	.agastya .labelbtn {
+		display: block;
+		border: 1px solid rgba(0, 0, 0, 0.1);
+		text-align: center;
+		padding: 5px 0;
+	}
+	.agastya .read-aloud audio {
+		width: 100%;
+		margin-bottom: 15px;
+	}
+</style>
+
+<div class="agastya">
+	<header>
+		<button onclick="window.a11y.changePage('home')">
+			<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 100 125" style="enable-background:new 0 0 100 100;" xml:space="preserve"><g><path d="M46,22.4c-1.7-1.4-4.2-1.2-5.6,0.4l-21,24.5c-1.3,1.5-1.3,3.7,0,5.2l21,24.5c0.8,0.9,1.9,1.4,3,1.4c0.9,0,1.8-0.3,2.6-1 c1.7-1.4,1.9-4,0.4-5.6L31.1,54h46.5c2.2,0,4-1.8,4-4s-1.8-4-4-4H31.1l15.4-17.9C47.9,26.4,47.7,23.9,46,22.4z"/></g></svg>
+		</button>
+		<span>Accessibility Options</span>
+		<div class="toggleElt">
+			<input type="checkbox" id="toggleLabel" onchange="window.a11y.mode();">
+			<div class="checker">
+				<label for="toggleLabel" class="checked" tabindex="0"></label>
+				<label for="toggleLabel" class="unchecked" tabindex="0"></label>
+			</div>
+		</div>
+	</header>
+	<div class="page large-font">
+		<p>Adjust font size:</p>
+		<div>
+			<button onclick="window.a11y.fontSize('increase');" class="a-third font-large">A+</button>
+			<button onclick="window.a11y.fontSize('reset');" class="a-third font-normal">A</button>
+			<button onclick="window.a11y.fontSize('decrease');" class="a-third font-small">A&minus;</button>
+		</div>
+	</div>
+	<div class="page contrast">
+		<p>Manually adjust page contrast: <strong><span id="a11yContrast">1</span>x</strong></p>
+		<input type="range" min="0.5" max="2" value="1" step="0.25" oninput="window.a11y.contrast(this.value);" onchange="window.a11y.contrast(this.value);">
+	</div>
+	<div class="page read-aloud">
+		<audio id="a11yReader" src="#" style="display: none"></audio>
+		<div>
+			<button onclick="window.a11y.speech.prevLine();" class="a-third">
+				<img alt="" src="icons/previous.png">
+				<small>Prev</small>
+			</button>
+			<button onclick="window.a11y.speech.pause();" class="a-third">
+				<img alt="" src="icons/pause.png">
+				<small>Pause</small>
+			</button>
+			<button onclick="window.a11y.speech.nextLine();" class="a-third">
+				<img alt="" src="icons/next.png">
+				<small>Next</small>
+			</button>
+		</div>
+		<div>
+			<button onclick="window.a11y.speech.seek('-30');" class="a-third">
+				<img alt="" src="icons/back30.png">
+				<small>&minus;30s</small>
+			</button>
+			<button onclick="window.a11y.speech.stop();" class="a-third">
+				<img alt="" src="icons/stop.png">
+				<small>Stop</small>
+			</button>
+			<button onclick="window.a11y.speech.seek('30');" class="a-third">
+				<img alt="" src="icons/next30.png">
+				<small>+30s</small>
+			</button>
+		</div>
+		<hr>
+		<p>Select reading speed: <strong><span id="a11yReadingSpeed">1</span>x</strong></p>
+		<input type="range" min="0.5" max="2" value="1" step="0.25" oninput="window.a11y.speech.changeSpeed(this.value);" onchange="window.a11y.speech.changeSpeed(this.value);">
+		<p style="margin-top: 20px">Change volume: <strong><span id="a11yVolume">100</span>%</strong></p>
+		<input type="range" min="0" max="100" value="100" oninput="window.a11y.speech.changeVolume(this.value);" onchange="window.a11y.speech.changeVolume(this.value);">
+	</div>
+	<div class="page settings">
+		<h4 style="margin-top: 0">Typography</h4>
+		<p>Set your preferred font for the "Legible Fonts" option:</p>
+		<div>
+			<span>
+				<input name="a11yLegibleFont" type="radio" id="a11yFontArial" checked>
+				<label for="a11yFontArial" class="tagbtn">Arial</label>
+			</span>
+			<span>
+				<input name="a11yLegibleFont" type="radio" id="a11yFontHelvetica">
+				<label for="a11yFontHelvetica" class="tagbtn">Helvetica</label>
+			</span>
+			<span>
+				<input name="a11yLegibleFont" type="radio" id="a11yFontVerdana">
+				<label for="a11yFontVerdana" class="tagbtn">Verdana</label>
+			</span>
+			<span>
+				<input name="a11yLegibleFont" type="radio" id="a11yFontTimes">
+				<label for="a11yFontTimes" class="tagbtn">Times New Roman</label>
+			</span>
+			<span>
+				<input name="a11yLegibleFont" type="radio" id="a11yFontGeorgia">
+				<label for="a11yFontGeorgia" class="tagbtn">Georgia</label>
+			</span>
+		</div>
+		<hr>
+		<h4>Blue Light Filter</h4>
+		<p>Automatically change the color of this website to adapt to the time of day, warm at night and like sunlight during the day (in beta).</p>
+		<p>Turn on Auto Blue Filter&trade;:</p>
+		<div>
+			<span>
+				<input name="a11yAutoFilter" type="radio" id="a11yAutoFilterNo" checked>
+				<label for="a11yAutoFilterNo" class="tagbtn">No</label>
+			</span>
+			<span>
+				<input name="a11yAutoFilter" type="radio" id="a11yAutoFilterYes">
+				<label for="a11yAutoFilterYes" class="tagbtn">Yes</label>
+			</span>
+		</div>
+		<hr>
+		<h4>Save My Settings</h4>
+		<p>We use cookies and browser storage to save your settings across websites. Read more about our <a href="#">Cookie policy</a>.</p>
+		<p>Set your preference to save your settings:</p>
+		<div>
+			<span>
+				<input name="a11ySaveSettings" type="radio" id="a11ySaveForever" checked>
+				<label for="a11ySaveForever" class="tagbtn">Forever</label>
+			</span>
+			<span>
+				<input name="a11ySaveSettings" type="radio" id="a11ySaveSession">
+				<label for="a11ySaveSession" class="tagbtn">For this session only</label>
+			</span>
+			<span>
+				<input name="a11ySaveSettings" type="radio" id="a11ySaveWebpage">
+				<label for="a11ySaveWebpage" class="tagbtn">For this page only</label>
+			</span>
+		</div>
+		<hr>
+		<h4>Dictionary</h4>
+		<p>You can highlight a word and read its definition. This feature is currently in beta.</p>
+		<p>Set your preference for the dictionary:</p>
+		<div>
+			<span>
+				<input name="a11ySaveSettings" type="radio" id="a11ySaveForever" checked>
+				<label for="a11ySaveForever" class="tagbtn">Off</label>
+			</span>
+			<span>
+				<input name="a11ySaveSettings" type="radio" id="a11ySaveSession">
+				<label for="a11ySaveSession" class="tagbtn">On</label>
+			</span>
+		</div>
+		<hr>
+		<h4>About</h4>
+		<p>This tool helps people use this website more comfortably, with special features for people with learning disorders, mobility impairment, and visual impairment.</p>
+		<p>If you're having trouble using Agastya, <a href="#">visit our usage guide</a> for detailed info.</p>
+		<p><small>TM and © 2017 Oswald Foundation<br>All rights reserved</small></p>
+	</div>
+	<!--<div class="page blue-filter">
+		<p>Adjust the intensity of the blue light filter:</p>
+		<input type="range" min="0" max="100" value="75">20%
+	</div>-->
+	<div class="page dyslexia">
+		<section>
+			<p>Select your typeface:</p>
+			<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontOpen" onchange="window.a11y.changeDyslexiaFont('Open Dyslexic')" checked>
+				<label for="a11yDyslexiaFontOpen" class="tagbtn">Open Dyslexic</label>
+			</span>
+			<!--<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontLexia">
+				<label for="a11yDyslexiaFontLexia" class="tagbtn">Lexia Readable</label>
+			</span>-->
+			<!--<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontDyslexie">
+				<label for="a11yDyslexiaFontDyslexie" class="tagbtn">Dyslexie</label>
+			</span>-->
+			<!--<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontSylexiad">
+				<label for="a11yDyslexiaFontSylexiad" class="tagbtn">Sylexiad Sans</label>
+			</span>-->
+			<!--<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontSassoon">
+				<label for="a11yDyslexiaFontSassoon" class="tagbtn">Sassoon Sans</label>
+			</span>-->
+			<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontCursive" onchange="window.a11y.changeDyslexiaFont('Cursive')">
+				<label for="a11yDyslexiaFontCursive" class="tagbtn">Cursive</label>
+			</span>
+			<span>
+				<input name="a11yFontName" type="radio" id="a11yDyslexiaFontSans" onchange="window.a11y.changeDyslexiaFont('Sans-serif')">
+				<label for="a11yDyslexiaFontSans" class="tagbtn">Sans-serif</label>
+			</span>
+		</section>
+		<hr>
+		<section>
+			<p>Select a color preference:</p>
+			<div>
+				<div class="one-fourth">
+					<input name="a11yDyslexiaColor" type="radio" id="a11yDyslexiaColor1"  onchange="window.a11y.changeDyslexiaColor('yellow-black')" checked>
+					<label for="a11yDyslexiaColor1" class="labelbtn" style="background: #feed64; color: #000">A</label>
+				</div>
+				<div class="one-fourth">
+					<input name="a11yDyslexiaColor" type="radio" id="a11yDyslexiaColor2"  onchange="window.a11y.changeDyslexiaColor('white-black')">
+					<label for="a11yDyslexiaColor2" class="labelbtn" style="background: #fff; color: #000">A</label>
+				</div>
+				<div class="one-fourth">
+					<input name="a11yDyslexiaColor" type="radio" id="a11yDyslexiaColor3"  onchange="window.a11y.changeDyslexiaColor('off')">
+					<label for="a11yDyslexiaColor3" class="labelbtn" style="background: #ffffe5; color: #0A0A0A">A</label>
+				</div>
+				<div class="one-fourth">
+					<input name="a11yDyslexiaColor" type="radio" id="a11yDyslexiaColor4"  onchange="window.a11y.changeDyslexiaColor('white-blue')">
+					<label for="a11yDyslexiaColor4" class="labelbtn" style="background: #fff; color: #00007d">A</label>
+				</div>
+			</div>
+			<div>
+				<div class="one-fourth" style="width: 50%">
+					<input name="a11yDyslexiaColor" type="radio" id="a11yDyslexiaColor5"  onchange="window.a11y.changeDyslexiaColor('default')">
+					<label for="a11yDyslexiaColor5" class="labelbtn">Default</label>
+				</div>
+			</div>
+		</section>
+	</div>
+	<div class="page translate">
+		<p>Select your language:</p>
+		<div>
+			<div class="one-fourth">
+				<button onclick="window.a11y.translate('en'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/gb.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('es'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/es.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('hi'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/in.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('zh-CN'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/cn.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('de'); return false">
+						<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/de.svg">
+					</button>
+				</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('pt'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/pt.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('nl'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/nl.svg">
+				</button>
+			</div>
+			<div class="one-fourth">
+					<button onclick="window.a11y.translate('ja'); return false">
+					<img alt="Hindi" src="https://lipis.github.io/flag-icon-css/flags/4x3/jp.svg">
+				</button>
+			</div>
+		</div>
+		<hr>
+		<p>Indian languages:</p>
+		<div>
+			<button class="tagbtn" onclick="window.a11y.translate('bn')">Bengali</button>
+			<button class="tagbtn" onclick="window.a11y.translate('gu')">Gujarati</button>
+			<button class="tagbtn" onclick="window.a11y.translate('hi')">Hindi</button>
+			<button class="tagbtn" onclick="window.a11y.translate('kn')">Kannada</button>
+			<button class="tagbtn" onclick="window.a11y.translate('ml')">Malayalam</button>
+			<button class="tagbtn" onclick="window.a11y.translate('mr')">Marathi</button>
+			<button class="tagbtn" onclick="window.a11y.translate('ma')">Punjabi</button>
+			<button class="tagbtn" onclick="window.a11y.translate('sd')">Sindhi</button>
+			<button class="tagbtn" onclick="window.a11y.translate('ta')">Tamil</button>
+			<button class="tagbtn" onclick="window.a11y.translate('te')">Telugu</button>
+			<button class="tagbtn" onclick="window.a11y.translate('ur')">Urdu</button>
+		</div>
+		<hr>
+		<p>More languages:</p>
+		<select onchange="window.a11y.translate(this);">
+			<option value="">Select Language</option>
+			<option value="af">Afrikaans</option>
+			<option value="sq">Albanian</option>
+			<option value="am">Amharic</option>
+			<option value="ar">Arabic</option>
+			<option value="hy">Armenian</option>
+			<option value="az">Azeerbaijani</option>
+			<option value="eu">Basque</option>
+			<option value="be">Belarusian</option>
+			<option value="bn">Bengali</option>
+			<option value="bs">Bosnian</option>
+			<option value="bg">Bulgarian</option>
+			<option value="ca">Catalan</option>
+			<option value="ceb">Cebuano</option>
+			<option value="zh-CN">Chinese (Simplified)</option>
+			<option value="zh-TW">Chinese (Traditional)</option>
+			<option value="co">Corsican</option>
+			<option value="hr">Croatian</option>
+			<option value="cs">Czech</option>
+			<option value="da">Danish</option>
+			<option value="nl">Dutch</option>
+			<option value="en">English</option>
+			<option value="eo">Esperanto</option>
+			<option value="et">Estonian</option>
+			<option value="fi">Finnish</option>
+			<option value="fr">French</option>
+			<option value="fy">Frisian</option>
+			<option value="gl">Galician</option>
+			<option value="ka">Georgian</option>
+			<option value="de">German</option>
+			<option value="el">Greek</option>
+			<option value="gu">Gujarati</option>
+			<option value="ht">Haitian Creole</option>
+			<option value="ha">Hausa</option>
+			<option value="haw">Hawaiian</option>
+			<option value="iw">Hebrew</option>
+			<option value="hi">Hindi</option>
+			<option value="hmn">Hmong</option>
+			<option value="hu">Hungarian</option>
+			<option value="is">Icelandic</option>
+			<option value="ig">Igbo</option>
+			<option value="id">Indonesian</option>
+			<option value="ga">Irish</option>
+			<option value="it">Italian</option>
+			<option value="ja">Japanese</option>
+			<option value="jw">Javanese</option>
+			<option value="kn">Kannada</option>
+			<option value="kk">Kazakh</option>
+			<option value="km">Khmer</option>
+			<option value="ko">Korean</option>
+			<option value="ku">Kurdish</option>
+			<option value="ky">Kyrgyz</option>
+			<option value="lo">Lao</option>
+			<option value="la">Latin</option>
+			<option value="lv">Latvian</option>
+			<option value="lt">Lithuanian</option>
+			<option value="lb">Luxembourgish</option>
+			<option value="mk">Macedonian</option>
+			<option value="mg">Malagasy</option>
+			<option value="ms">Malay</option>
+			<option value="ml">Malayalam</option>
+			<option value="mi">Maori</option>
+			<option value="mr">Marathi</option>
+			<option value="mn">Mongolian</option>
+			<option value="my">Myanmar (Burmese)</option>
+			<option value="ne">Nepali</option>
+			<option value="no">Norwegian</option>
+			<option value="ny">Nyanja (Chichewa)</option>
+			<option value="ps">Pashto</option>
+			<option value="fa">Persian</option>
+			<option value="pl">Polish</option>
+			<option value="pt">Portuguese</option>
+			<option value="pa">Punjabi</option>
+			<option value="ro">Romanian</option>
+			<option value="ru">Russian</option>
+			<option value="sm">Samoan</option>
+			<option value="gd">Scots Gaelic</option>
+			<option value="sr">Serbian</option>
+			<option value="st">Sesotho</option>
+			<option value="sn">Shona</option>
+			<option value="sd">Sindhi</option>
+			<option value="si">Sinhala (Sinhalese)</option>
+			<option value="sk">Slovak</option>
+			<option value="sl">Slovenian</option>
+			<option value="so">Somali</option>
+			<option value="es">Spanish</option>
+			<option value="su">Sundanese</option>
+			<option value="sw">Swahili</option>
+			<option value="sv">Swedish</option>
+			<option value="tl">Tagalog (Filipino)</option>
+			<option value="tg">Tajik</option>
+			<option value="ta">Tamil</option>
+			<option value="te">Telugu</option>
+			<option value="th">Thai</option>
+			<option value="tr">Turkish</option>
+			<option value="uk">Ukrainian</option>
+			<option value="ur">Urdu</option>
+			<option value="uz">Uzbek</option>
+			<option value="vi">Vietnamese</option>
+			<option value="cy">Welsh</option>
+			<option value="xh">Xhosa</option>
+			<option value="yi">Yiddish</option>
+			<option value="yo">Yoruba</option>
+			<option value="zu">Zulu</option>
+		</select>
+	</div>
+	<main>
+		<button class="dyslexia-btn" tabindex="0" style="background: #feed64" onclick="window.a11y.changePage('dyslexia');window.a11y.on('dyslexia');">
+			<img alt="" src="/icons/dyslexia.png">
+			<span>Dyslexia</span>
+		</button>
+		<button class="inverted" tabindex="0" style="background: #444; color: #fff" onclick="window.a11y.mode('night');this.classList.toggle('selected')">
+			<img alt="" src="/icons/night.png">
+			<span>Night</span>
+		</button>
+		<button tabindex="0" style="background: #fec" onclick="window.a11y.mode('sepia');this.classList.toggle('selected')">
+			<img alt="" src="/icons/sepia.png">
+			<span>Blue Filter</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.changePage('large-font')">
+			<img alt="" src="/icons/fontplus.png">
+			<span>Large Font</span>
+		</button>
+		<button tabindex="0" class="a11y-read-aloud-btn" style="background: #eee" onclick="window.a11y.speech.start();">
+			<img alt="" src="/icons/readaloud.png">
+			<span>Read Aloud</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.changePage('translate')">
+			<img alt="" src="/icons/translate.png">
+			<span>Translate</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.changePage('contrast')">
+			<img alt="" src="/icons/contrast.png">
+			<span>Contrast</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.mode('desaturate');this.classList.toggle('selected');">
+			<img alt="" src="/icons/desaturate.png">
+			<span>Desaturate</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.mode('bigcursor');this.classList.toggle('selected');">
+			<img alt="" src="/icons/bigcursor.png">
+			<span>Big Cursor</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.mode('legiblefonts');this.classList.toggle('selected');">
+			<img alt="" src="/icons/legiblefonts.png">
+			<span>Legible Fonts</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.mode('highlight-links');this.classList.toggle('selected');">
+			<img alt="" src="/icons/highlightlinks.png">
+			<span>Highlight Links</span>
+		</button>
+		<button tabindex="0" style="background: #eee">
+			<img alt="" src="/icons/keyboard.png">
+			<span>Keyboard Nav</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.reset();">
+			<img alt="" src="/icons/reset.png">
+			<span>Reset</span>
+		</button>
+		<button tabindex="0" style="background: #eee" onclick="window.a11y.changePage('settings')">
+			<img alt="" src="/icons/settings.png">
+			<span>Settings</span>
+		</button>
+		<footer>
+			<div><a href="#">Accessibility Statement</a></div>
+			<div><small>Powered by <a target="_blank" href="https://a11y.co?campaign=footer">a11y.co</a></small></div>
+		</footer>
+	</main>
+</div>

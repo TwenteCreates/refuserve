@@ -51,8 +51,8 @@
 		</span>
 		<input ng-model="messageText" type="text" class="form-control bg-none" placeholder="Tap here to talk..." ng-show="inputType == 0">
 		<select ng-model="messageText" class="form-control bg-none" ng-show="inputType == 1">
-			<option val="Select an Option">Select an option</option>
-			<option val="{{ option.id }}" ng-repeat="option in answerOptions">{{ option.text }}</option>
+			<option value="Select an option">Select an option</option>
+			<option value="{{ option.id }}" ng-repeat="option in answerOptions">{{ option.text }}</option>
 		</select>
 		<div class="w-100 text-center" ng-show="inputType == 2">
 			<button type="submit" ng-model="messageText" class="btn btn-primary">{{ messageText }}</button>
