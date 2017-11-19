@@ -197,10 +197,9 @@ def get_audio_for_youtube_link():
     tts = gTTS(text=file_contents, lang='en', slow=True)
     mp3_filename = '%s.mp3' %(filename)
     tts.save(mp3_filename)
-    import pdb; pdb.set_trace()
-    storage.upload(mp3_filename)
+    x = storage.upload(mp3_filename)
     import os; os.remove(mp3_filename)
-    resp['audio'] = url_for("download", object_name=mp3_filename)
+    resp['audio'] = url_for("download", object_name=x.path)
     return jsonify(resp)
 
 @app.route("/download/<path:object_name>")
