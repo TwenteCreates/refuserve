@@ -32,8 +32,8 @@ def recommendJobs(userSkills):
     elif(len(suggestedJobs)==0):
          suggestedJobs.append(jobs[matchCount.index(max(matchCount))]['title'])
            
-    print (matchCount)               
-    print(suggestedJobs)
+#    print (matchCount)               
+#    print(suggestedJobs)
     return suggestedJobs
 
 def recommendVideos(userJob):
