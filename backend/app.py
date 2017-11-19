@@ -4,6 +4,7 @@ from flask_cors import CORS
 from flask_cloudy import Storage
 
 from gtts import gTTS
+import os
 from recommender import recommendJobs, recommendVideos
 import subprocess
 app = Flask(__name__)
@@ -172,11 +173,13 @@ def get_audio_for_youtube_link():
     # proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     # print proc.communicate()[0]
     # 1. call youtube-dl to create the vtt
-    srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
-        %(youtube_uri, lang, filename)
-    proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
-    print proc.communicate()[0]
-
+    if os.path.exists(vtt_fullname):
+        srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
+            %(youtube_uri, lang, filename)
+        proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
+        print proc.communicate()[0]
+    else:
+        pass
     # subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
     #                  youtube_uri, '--srt-lang', lang,
     #                  '-o', filename ])
