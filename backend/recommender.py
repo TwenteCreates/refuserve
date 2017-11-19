@@ -1,4 +1,7 @@
 from video_api import youtube_search
+import json
+import os
+
 
 jobs=[{'title':'Project Management','skills':['PMP','Agile', 'SDLC','Scrum','ITIL Foundation','CAPM','Cisco CCNA','Microsoft Project']},
       {'title':'Backend Programmer','skills':['PHP','Ruby','Python','Java','.Net','MySQL','Oracle','SQL Server','Zend','Symfony','CakePHP','SVN','CVS','Git']},
@@ -53,14 +56,22 @@ def recommendVideos(myJob,mySkills,lang):
    
     options=dict()
     youtubeResults=[]
-    for toLearnSkill in toLearnSkills:        
-        options['term']='Learn '+toLearnSkill
-        options['part']='id,snippet'
-        options['max_results']=2
-        youtubeResults.append(youtube_search(options))
+    cachedFiles=os.listdir("cache")
+    for toLearnSkill in toLearnSkills:
+        if toLearnSkill+".json" not in cachedFiles:
+            options['term']='Learn '+toLearnSkill
+            options['part']='id,snippet'
+            options['max_results']=2
+            result=youtube_search(options)
+            youtubeResults.append(result)
+            with open('cache/'+toLearnSkill+".json", 'w') as outfile:
+                json.dump(result, outfile)
+        else:
+             youtubeResults.append(json.load(open('cache/'+toLearnSkill+".json")))
+
         
     print (youtubeResults)
     return youtubeResults
     
 
-#recommendVideos('Backend Programmer',['Python'],'German')   
+recommendVideos('Graphic Designer',[],'Chinese')   
