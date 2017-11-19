@@ -430,7 +430,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 		}
 	}
 
-	var speed = 1000;
+	var speed = 700;
 	if (document.domain == "127.0.0.1") {
 		speed = 100;
 	}
