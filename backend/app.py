@@ -194,17 +194,17 @@ def get_audio_for_youtube_link():
     with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
         file_contents = f.read()
     # file_contents = open(, encoding='utf-8').read()
-    tts = gTTS(text=file_contents, lang='en', slow=True)
+    tts = gTTS(text=file_contents, lang=lang, slow=False)
     mp3_filename = '%s.mp3' %(filename)
     tts.save(mp3_filename)
     x = storage.upload(mp3_filename)
     import os; os.remove(mp3_filename)
+    import pdb;pdb.set_trace()
     resp['audio'] = url_for("download", object_name=x.path)
     return jsonify(resp)
 
 @app.route("/download/<path:object_name>")
 def download(object_name):
-    import pdb; pdb.set_trace()
     my_object = storage.get(object_name)
     if my_object:
         download_url = my_object.download()
