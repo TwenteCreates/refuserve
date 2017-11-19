@@ -1,0 +1,83 @@
+<header class="primary-header p-3 text-center font-weight-bold">
+	Accessibility
+</header>
+	
+<div class="p-1 chat-window">
+		<div class="agastya">
+			
+			<div class="agastya-content">
+				<div class="agastya-page main">
+					<div class="agastya-block">
+						<input type="checkbox" id="dyslexia" onchange="agastya.mode('dyslexia');">
+						<label class="agastya-mode-box agastya-mode-box--dyslexia" for="dyslexia">
+							<i class="ion ion-md-book"></i>
+							<i class="ion ion-md-checkmark"></i>
+							<span aria-label="Switch to Dyslexia-friendly Mode">Dyslexia</span>
+						</label>
+					</div>
+					<div class="agastya-block">
+						<input type="checkbox" id="night" onchange="agastya.mode('night');">
+						<label class="agastya-mode-box agastya-mode-box--night" for="night">
+							<i class="ion ion-md-moon"></i>
+							<i class="ion ion-md-checkmark"></i>
+							<span aria-label="Switch to Night Mode">Night</span>
+						</label>
+					</div>
+					<div class="agastya-block">
+						<input type="checkbox" id="sepia" onchange="agastya.mode('sepia');">
+						<label class="agastya-mode-box agastya-mode-box--sepia" for="sepia">
+							<i class="ion ion-md-sunny"></i>
+							<i class="ion ion-md-checkmark"></i>
+							<span aria-label="Switch to Blue light Filter mode">Blue Filter</span>
+						</label>
+					</div>
+					<div class="agastya-block">
+						<button class="agastya-mode-box" id="readaloud" onclick="agastya.speak();agastya.close()">
+							<i class="ion ion-md-volume-up"></i>
+							<span aria-label="Read aloud text">Read Aloud</span>
+						</button>
+					</div>
+					<div class="agastya-block translate">
+						<select onchange="agastya.translate(this.value)">
+							<option value="en" selected="">English</option>
+							<option value="bn">Bengali</option>
+							<option value="gu">Gujarati</option>
+							<option value="hi">Hindi</option>
+							<option value="kn">Kannada</option>
+							<option value="ml">Malayalam</option>
+							<option value="mr">Marathi</option>
+							<option value="ma">Punjabi</option>
+							<option value="sd">Sindhi</option>
+							<option value="ta">Tamil</option>
+							<option value="te">Telugu</option>
+							<option value="ur">Urdu</option>
+						</select>
+						<div class="agastya-mode-box">
+							<i class="ion ion-md-globe"></i>
+							<span aria-label="Translate language">Translate</span>
+						</div>
+					</div>
+					<div class="agastya-block">
+						<button class="agastya-mode-box" onclick="agastya.reset()">
+							<i class="ion ion-md-refresh"></i>
+							<span aria-label="Reset all customizations">Reset</span>
+						</button>
+					</div>
+					<div class="agastya-block">
+						<button class="agastya-mode-box" onclick="agastya.page('help');">
+							<i class="ion ion-md-help-circle"></i>
+							<span aria-label="Help">Help</span>
+						</button>
+					</div>
+				</div>
+				<div class="agastya-page help">
+					<div style="text-align: center"><button onclick="agastya.page('home');"><i class="ion ion-md-arrow-back"></i>Go back</button></div>
+					<p>This tool helps people use <span class="websiteName">a11y</span> more comfortably, with special features for people with learning disorders or visual impairment.</p>
+					<p>If you're having trouble using Agastya, visit our <a href="#">usage guide</a> for detailed info.</p>
+					<p>If you're a developer, you can easily <a href="#">get Agastya</a> for your website for free.</p>
+					<div style="text-align: center"><small>Agastya v0.95<br>TM and © 2017 Oswald Foundation<br>All Rights Reserved.</small></div>
+				</div>
+			</div></div>
+</div>
+
+<footer></footer>

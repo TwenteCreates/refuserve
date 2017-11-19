@@ -25,6 +25,8 @@ body {
         color: #888;
         font-size: 75%;
         font-weight: 500; }
+        .primary-navbar ul li a.active, .messenger-block ul li a.active {
+          color: #2c8f9f; }
         .primary-navbar ul li a:hover, .messenger-block ul li a:hover {
           text-decoration: none; }
       .primary-navbar ul li img, .messenger-block ul li img {
@@ -77,5 +79,15 @@ main {
 @media (max-width: 500px) {
   .form-control:focus {
     box-shadow: none; } }
+.agastya {
+  display: block !important;
+  -webkit-transform: none !important;
+          transform: none !important;
+  position: static !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important; }
+  .agastya .agastya-page {
+    height: auto !important; }
 
 /*# sourceMappingURL=style.css.map */
