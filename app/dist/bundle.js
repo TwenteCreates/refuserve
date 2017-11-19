@@ -37970,44 +37970,72 @@ app.config(function($routeProvider) {
 	}).when("/access", {
 		templateUrl: "views/access.html",
 		// controller: "chatCtrl"
+	}).when("/library", {
+		templateUrl: "views/library.html",
+		controller: "libraryCtrl"
+	}).when("/settings", {
+		templateUrl: "views/settings.html",
+		// controller: "libraryCtrl"
+	}).when("/resume", {
+		templateUrl: "views/resume.html",
+		// controller: "libraryCtrl"
 	});
 });
 
 app.controller("pageCtrl", function($scope, $location) {
-	$scope.activeLink_access = $location.$$path === "/access" ? "active" : "";
+	$scope.currentPage = $location.$$path;
 	$scope.$on("$locationChangeStart", function(event) {
-		$scope.activeLink_access = $location.$$path === "/access" ? "active" : "";
+		$scope.currentPage = $location.$$path;
 	});
-	console.log($scope.activeLink_access);
 });
 
-app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $interval, $http) {
+app.controller("libraryCtrl", function($scope, $localForage) {
+
+	// Initialize
+	$scope.hasLibrary = 0;
+
+	// Get library material
+	$localForage.getItem("library").then(function(library) {
+		if (library) {
+			$scope.hasLibrary = 1;
+		}
+	});
+
+});
+
+app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $http) {
 
 	// Initializations
 	$scope.messages = []; // Empty array for messages
-	$scope.inputType = 0; // [0 => text, 1 => select, 2 => range]
+	$scope.inputType = 0; // [0 => text, 1 => select, 2 => button]
 
 	// Array for basic Q and A
 	$scope.questions = [{
-		text: "Hey stranger!"
+		text: "Hey stranger! 👋"
 	}, {
 		text: "Welcome to RefuServe. What should I call you?",
+		tip: "Type your name to continue.",
 		var: "name",
 		reply: "That's a pretty name, {{ var }}!",
 		validate: /^[a-zA-Z ]{2,30}$/
 	}, {
-		text: "I'd love to get to know you better."
+		text: "I'd love to get to know you better.",
+		var: "startInit",
+		button: "Let's go! 😄",
+		reply: "Fantastic."
 	}, {
-		text: "How old are you? (Enter a number)",
+		text: "How old are you?",
+		tip: "Enter a number",
 		var: "age",
 		reply: "Perfect, {{ var }} years young.",
+		validate: /^\d+$/
 	}, {
 		text: "What's your native language?",
 		var: "lang",
-		options: ["English", "Hindi", "Arabic", "Urdu", "Turkish", "Spanish", "Portuguese", "Russian", "Chinese"],
-		reply: "Beautiful language"
+		options: [{ id: "en", text: "English" }, { id: "hi", text: "Hindi" }, { id: "ar", text: "Arabic" }, { id: "ur", text: "Urdu" }, { id: "tr", text: "Turkish" }, { id: "es", text: "Spanish" }, { id: "pt", text: "Portuguese" }, { id: "ru", text: "Russian" }, { id: "zh-CN", text: "Chinese" }],
+		reply: "That's a beautiful language! I'll remember this to make things easier for you later."
 	}, {
-		text: "Great, I just need some contact information from you now, and we can continue."
+		text: "Great, I just need some contact information from you now, and we can continue. 📞"
 	}, {
 		text: "What's your phone number?",
 		var: "phone",
@@ -38040,17 +38068,22 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 				$localForage.getItem("skill1").then(function(skill1) {
 					$localForage.getItem("skill2").then(function(skill2) {
 						$localForage.getItem("skill3").then(function(skill3) {
-							$http.get("http://34.215.49.164:5000/recommend/jobs?skills=" + skill1 + "," + skill2 + "," + skill3).then(function(response) {
+							$http.get("http://34.215.49.164:5000/recommend/jobs?skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
 								var arrayResponse = response.data;
-								if (arrayResponse.length == 1) {
+								// if (arrayResponse.length == 1) {
+								// 	resolve(arrayResponse[0]);
+								// } else {
+								// 	var result = "Choose between (1) " + arrayResponse[0];
+								// 	for (var i = 1; i < arrayResponse.length; i++) {
+								// 		result += ", (" + i + 1 + ")" + arrayResponse[i];
+								// 	}
+								// 	$localForage.setItem("nextOptions", arrayResponse).then(function() {
+								// 		resolve(result);
+								// 	});
+								// }
+								$localForage.setItem("jobName", arrayResponse[0]).then(function() {
 									resolve(arrayResponse[0]);
-								} else {
-									var result = "Choose between (1) " + arrayResponse[0];
-									for (var i = 1; i < arrayResponse.length; i++) {
-										result += ", (" + i + 1 + ")" + arrayResponse[i];
-									}
-									resolve(result);
-								}
+								});
 							});
 						});
 					});
@@ -38059,14 +38092,46 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 		},
 		text: "Here's what I think you should consider: {{ response }}",
 	}, {
-		text: "That's all, folks!"
+		text: "Let's get started with some skill building now! 💪",
+		button: "Yes, please!",
+		var: "initDone",
+		reply: "Awesome! I'm looking for free MOOCs, videos, and lessons to improve your skills."
+	}, {
+		returnCall: function() {
+			return new Promise(function(resolve, reject) {
+				$localForage.getItem("jobName").then(function(jobName) {
+					$localForage.getItem("skill1").then(function(skill1) {
+						$localForage.getItem("skill2").then(function(skill2) {
+							$localForage.getItem("skill3").then(function(skill3) {
+								$http.get("http://34.215.49.164:5000/recommend/videos?job=" + encodeURIComponent(jobName) + "&skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
+									$localForage.setItem("library", response.data).then(function() {
+										resolve(response.data.length);
+									});
+								});
+							});
+						});
+					});
+				});
+			});
+		},
+		text: "I found {{ response }} great resources to expand your skillset."
+	}, {
+		text: "I've added them to your library. You can start learning now.",
+		callToAction: "Go to Library",
+		callToActionLink: "/library"
+	}, {
+		text: "Let me know if there's anything else I can help out with. 😊",
+		var: "NeXTSTEP",
+		options: [{ id: "resume", text: "Update my resume" }, { id: "settings", text: "Change my settings" }, { id: "help", text: "I need some help" }]
 	}];
 
 	// Check if history exist in local storage
 	$localForage.getItem("messages").then(function(messages) {
 		if (messages) {
 			$scope.messages = messages;
-			$(".chat-window").animate({ scrollTop: $(".chat-window").prop("scrollHeight") }, 500);
+			$timeout(function() {
+				$(".chat-window").scrollTop($(".chat-window").prop("scrollHeight"));
+			}, 1);
 			$localForage.getItem("QAStatus").then(function(QAStatus) {
 				if (QAStatus != $scope.questions.length + 1) {
 					$scope.converse();
@@ -38080,10 +38145,16 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 	});
 
 	// Function to add message to DOM and local storage
-	$scope.addMessage = (user, text) => {
+	$scope.addMessage = (user, text, tip, callToAction, callToActionLink) => {
+		tip = tip || null;
+		callToAction = callToAction || null;
+		callToActionLink = callToActionLink || null;
 		$scope.messages.push({
 			user: user,
-			text: text
+			text: text,
+			tip: tip,
+			callToAction: callToAction,
+			callToActionLink: callToActionLink
 		});
 		$localForage.setItem("messages", $scope.messages).then(function() {
 			devInfo("LocalStorage: Saved " + $scope.messages.length + " messages");
@@ -38149,12 +38220,13 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 						if ($scope.questions[QAStatus - 1].var) {
 							if ($scope.questions[QAStatus - 1].validate) {
 								if ($scope.questions[QAStatus - 1].validate.test(userMessage)) {
+									devInfo($scope.questions[QAStatus - 1].var + " validated successfully");
 									$localForage.setItem($scope.questions[QAStatus - 1].var, userMessage).then(function() {
 										$scope.say($scope.questions[QAStatus - 1].reply.replace("{{ var }}", userMessage.charAt(0).toUpperCase() + userMessage.slice(1))).then($scope.converse);
 									});
 								} else {
 									var responses = ["Hey, I don't think that's a valid input. Sorry if I'm being mean, but my bosses are very strict.", "Hey, come on, I don't think that's your real " + $scope.questions[QAStatus - 1].var + ".", "I don't think that's a valid input. Can you please try again? 🤔", "I'm a bit confused by your response. What do you mean?", "Are you sure that's your " + $scope.questions[QAStatus - 1].var + "? I think you've got it wrong.", "If only " + $scope.questions[QAStatus - 1].var + "s looked like that... come on, your real " + $scope.questions[QAStatus - 1].var + ", please?"];
-									$scope.say(responses[Math.floor(Math.random() * responses.length + 1)]);
+									$scope.say(responses[Math.floor(Math.random() * (responses.length - 1))]);
 								}
 							} else {
 								$localForage.setItem($scope.questions[QAStatus - 1].var, userMessage).then(function() {
@@ -38171,7 +38243,10 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 	var speed = 100;
 
 	// Function for speaking
-	$scope.say = function(botMessage) {
+	$scope.say = function(botMessage, tip, callToAction, callToActionLink) {
+		tip = tip || null;
+		callToAction = callToAction || null;
+		callToActionLink = callToActionLink || null;
 		$(".typing-chatbox").show();
 		$timeout(function() {
 			$(".chat-window").animate({ scrollTop: $(".chat-window").prop("scrollHeight") }, 500);
@@ -38179,7 +38254,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 		return new Promise(function(resolve, reject) {
 			$timeout(function() {
 				$(".typing-chatbox").hide();
-				$scope.addMessage("bot", botMessage);
+				$scope.addMessage("bot", botMessage, tip, callToAction, callToActionLink);
 				$timeout(resolve, speed);
 			}, speed * 1.5);
 		});
@@ -38191,12 +38266,12 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 			if ($scope.questions[QAStatus]) {
 				if (typeof $scope.questions[QAStatus].returnCall == "function") {
 					$scope.questions[QAStatus].returnCall().then(function(response) {
-						$scope.say($scope.questions[QAStatus].text.replace("{{ response }}", response)).then(function() {
+						$scope.say($scope.questions[QAStatus].text.replace("{{ response }}", response), $scope.questions[QAStatus].tip, $scope.questions[QAStatus].callToAction, $scope.questions[QAStatus].callToActionLink).then(function() {
 							$localForage.setItem("QAStatus", QAStatus + 1).then($scope.converse);
 						});
 					});
 				} else {
-					$scope.say($scope.questions[QAStatus].text).then(function() {
+					$scope.say($scope.questions[QAStatus].text, $scope.questions[QAStatus].tip, $scope.questions[QAStatus].callToAction, $scope.questions[QAStatus].callToActionLink).then(function() {
 						$localForage.setItem("QAStatus", QAStatus + 1).then($scope.converse);
 					});
 				}
@@ -38219,6 +38294,10 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $in
 							$scope.inputType = 1;
 							$scope.messageText = "Select an option";
 							$scope.answerOptions = $scope.questions[QAStatus - 1].options;
+						} else if ($scope.questions[QAStatus - 1].button) {
+							devInfo("This question has a single button");
+							$scope.inputType = 2;
+							$scope.messageText = $scope.questions[QAStatus - 1].button;
 						} else {
 							$scope.inputType = 0;
 							$scope.options = [];

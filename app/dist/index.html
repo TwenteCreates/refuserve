@@ -35,13 +35,14 @@
 
 			<nav class="primary-navbar text-center" ng-controller="pageCtrl">
 				<ul class="d-flex align-items-center justify-content-around">
-					<li><a ng-href="./#!/a"><i class="ion ion-md-document"></i>R&eacute;sum&eacute;</a></li>
-					<li><a ng-href="./#!/a"><i class="ion ion-md-school"></i>Learn</a></li>
-					<li><a ng-href="./#!/">
+					<li><a class="{{ currentPage == '/resume' ? 'active' : '' }}" ng-href="./#!/resume"><i class="ion ion-ios-document"></i>R&eacute;sum&eacute;</a></li>
+					<li><a class="{{ currentPage == '/library' ? 'active' : '' }}" ng-href="./#!/library"><i class="ion ion-ios-school"></i>Library</a></li>
+					<li><a class="{{ currentPage == '/' ? 'active' : '' }}" ng-href="./#!/"><i class="ion ion-ios-chatbubbles"></i>Chat</a></li>
+					<!-- <li><a ng-href="./#!/">
 						<img alt="Logo" src="android-chrome-192x192.png">
-					</a></li>
-					<li><a ng-href="./#!/access" class="{{ activeLink_access }}"><i class="ion ion-md-body"></i>Access</a></li>
-					<li><a ng-href="./#!/a"><i class="ion ion-md-settings"></i>Settings</a></li>
+					</a></li> -->
+					<li><a class="{{ currentPage == '/access' ? 'active' : '' }}" ng-href="./#!/access"><i class="ion ion-ios-body"></i>Access</a></li>
+					<li><a class="{{ currentPage == '/settings' ? 'active' : '' }}" ng-href="./#!/settings"><i class="ion ion-md-settings"></i>Settings</a></li>
 				</ul>
 			</nav>
 		

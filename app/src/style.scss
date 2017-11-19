@@ -123,3 +123,24 @@ main {
 		height: auto !important;
 	}
 }
+
+.btn-primary {
+	background: $color !important;
+	color: #fff !important;
+	border-radius: 50px 50px 20px 50px;
+}
+
+.btn-secondary {
+	border-radius: 20px;
+	color: $color;
+	background: none;
+	border: 2px solid $color;
+	padding: 0.3em 0.75em;
+}
+
+.small {
+	line-height: 1.5;
+    display: inline-block;
+    margin-top: -15px;
+    font-size: 75%;
+}

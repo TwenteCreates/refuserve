@@ -7,10 +7,18 @@
 		<div class="chatbox-container mb-4" ng-if="message.user == 'bot'">
 			<div class="chatbox-inside d-flex align-items-stretch">
 				<div class="chat-icon d-flex align-items-end">
-					<img alt="Profile picture" src="bot.png">
+					<img alt="Profile picture" src="apple-touch-icon.png">
 				</div>
 				<div class="chat-content">
-					<div class="chatbox">{{ message.text }}</div>
+					<div class="chatbox">
+						{{ message.text }}
+						<span class="text-muted small" ng-if="message.tip"><br>
+							{{ message.tip }}
+						</span>
+						<div ng-if="message.callToAction">
+							<a href="./#!{{ message.callToActionLink }}" class="btn btn-secondary btn-sm border-rounded mt-2">{{ message.callToAction }}</a>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -25,7 +33,7 @@
 	<div class="chatbox-container mb-4 typing-chatbox">
 		<div class="chatbox-inside d-flex align-items-stretch">
 			<div class="chat-icon d-flex align-items-end">
-				<img alt="Profile picture" src="bot.png">
+				<img alt="Profile picture" src="apple-touch-icon.png">
 			</div>
 			<div class="chat-content">
 				<div class="chatbox">
@@ -43,9 +51,12 @@
 		</span>
 		<input ng-model="messageText" type="text" class="form-control bg-none" placeholder="Tap here to talk..." ng-show="inputType == 0">
 		<select ng-model="messageText" class="form-control bg-none" ng-show="inputType == 1">
-			<option>Select an option</option>
-			<option ng-repeat="option in answerOptions">{{ option }}</option>
+			<option val="Select an Option">Select an option</option>
+			<option val="{{ option.id }}" ng-repeat="option in answerOptions">{{ option.text }}</option>
 		</select>
+		<div class="w-100 text-center" ng-show="inputType == 2">
+			<button type="submit" ng-model="messageText" class="btn btn-primary">{{ messageText }}</button>
+		</div>
 		<span class="input-group-btn">
 			<button class="btn btn-secondary" type="submit"><i class="ion ion-md-send" aria-label="Send"></i></button>
 		</span>
