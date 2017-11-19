@@ -1,4 +1,4 @@
-import video_api
+from video_api import youtube_search
 
 
 jobs=[{'title':'Project Management','skills':['PMP certification','Agile Scrum certification','ITIL Foundation certification','CAPM certification','Cisco CCNA','Microsoft Project']},

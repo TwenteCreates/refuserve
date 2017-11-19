@@ -4,7 +4,7 @@ from flask_cors import CORS
 from flask_cloudy import Storage
 
 from gtts import gTTS
-import recommender
+from recommender import recommendJobs, recommendVideos
 import subprocess
 app = Flask(__name__)
 CORS(app)
