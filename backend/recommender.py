@@ -9,6 +9,21 @@ jobs=[{'title':'Project Management','skills':['PMP','Agile', 'SDLC','Scrum','ITI
       {'title':'Frontend Developer','skills':['HTML','CSS','JavaScript','jQuery','CSS Preprocessing','Git','Responsive Design','Testing and Debugging','Browser Developer Tools','Building and Automation Tools Web Performance','Command Line Interface']},
       {'title':'Graphic Designer','skills':['Typography','Adobe Photoshop','Sketch','Adobe InDesign','Quark','HTML','CSS','Photography','Social Media Marketing']}
     ]
+def levenshteinDistance(s1, s2):
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+
+    distances = range(len(s1) + 1)
+    for i2, c2 in enumerate(s2):
+        distances_ = [i2+1]
+        for i1, c1 in enumerate(s1):
+            if c1 == c2:
+                distances_.append(distances[i1])
+            else:
+                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+        distances = distances_
+    return distances[-1]
+
 
 def recommendJobs(mySkills):
     suggestedJobs=[]
@@ -19,24 +34,24 @@ def recommendJobs(mySkills):
         skills=job['skills']
         for skill in skills:
             for mySkill in mySkills:
-                if (mySkill.lower().strip()== skill.lower().strip()):
+                distance=levenshteinDistance(mySkill.replace(' ','').lower().strip(), skill.replace(' ','').lower().strip())
+                if (distance<=2):
                     count+=1
-        if(count>=threshold):   
+        if(count>=threshold):
             suggestedJobs.append(job['title'])
-        matchCount.append(count)   
-       
+        matchCount.append(count)
+
     if(max(matchCount)==0):
         for job in jobs:
             suggestedJobs.append(job['title'])
-        
+
     elif(len(suggestedJobs)==0):
         maxValue=max(matchCount)
         indices = [i for i, x in enumerate(matchCount) if x == maxValue]
         for index in indices:
             suggestedJobs.append(jobs[index]['title'])
-           
-#    print (matchCount)               
-#    print(suggestedJobs)
+
+
     return suggestedJobs
 
 def recommendVideos(myJob,mySkills,lang):
@@ -49,11 +64,12 @@ def recommendVideos(myJob,mySkills,lang):
     for skill in requiredSkills:
         flag=0
         for mySkill in mySkills:
-            if (skill.lower() == mySkill.lower()):
+            distance=levenshteinDistance(mySkill.replace(' ','').lower().strip(), skill.replace(' ','').lower().strip())
+            if (distance<=2):
                 flag=1
         if (flag==0):
             toLearnSkills.append(skill)
-   
+
     options=dict()
     youtubeResults=[]
     cachedFiles=os.listdir("cache")
@@ -69,9 +85,7 @@ def recommendVideos(myJob,mySkills,lang):
         else:
              youtubeResults.append(json.load(open('cache/'+toLearnSkill+".json")))
 
-        
+
     print (youtubeResults)
     return youtubeResults
-    
 
-recommendVideos('Graphic Designer',[],'Chinese')   

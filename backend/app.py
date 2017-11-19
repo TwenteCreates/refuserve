@@ -4,6 +4,7 @@ from flask_cors import CORS
 from flask_cloudy import Storage
 
 from gtts import gTTS
+import os
 from recommender import recommendJobs, recommendVideos
 import subprocess
 app = Flask(__name__)
@@ -172,10 +173,25 @@ def get_audio_for_youtube_link():
     # proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     # print proc.communicate()[0]
     # 1. call youtube-dl to create the vtt
-    srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
-        %(youtube_uri, lang, filename)
-    proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
-    print proc.communicate()[0]
+    if os.path.exists(vtt_fullname):
+        srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
+            %(youtube_uri, lang, filename)
+        proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
+        print proc.communicate()[0]
+
+        # Read in the file
+        with open(vtt_fullname, 'r') as file:
+            filedata = file.read()
+
+        # Replace the target string
+        filedata = filedata.replace('>', '> ')
+
+        # Write the file out again
+        with open(vtt_fullname, 'w') as file:
+            file.write(filedata)
+
+    else:
+        pass
 
     # subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
     #                  youtube_uri, '--srt-lang', lang,
@@ -191,15 +207,16 @@ def get_audio_for_youtube_link():
     #                  '--scc_lang', lang])
     # 3. tts the transcript
     import codecs
+    file_contents = ""
     with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
         file_contents = f.read()
-    # file_contents = open(, encoding='utf-8').read()
-    tts = gTTS(text=file_contents, lang=lang, slow=False)
-    mp3_filename = '%s.mp3' %(filename)
-    tts.save(mp3_filename)
-    x = storage.upload(mp3_filename)
-    import os; os.remove(mp3_filename)
-    resp['audio'] = url_for("download", object_name=x.full_url)
+    resp['transcript'] = file_contents[20:]  # removing unnnecessary header before this
+    # tts = gTTS(text=file_contents, lang=lang, slow=False)
+    # mp3_filename = '%s.mp3' %(filename)
+    # tts.save(mp3_filename)
+    # x = storage.upload(mp3_filename)
+    # import os; os.remove(mp3_filename)
+    # resp['audio'] = url_for("download", object_name=x.full_url)
     return jsonify(resp)
 
 @app.route("/download/<path:object_name>")
@@ -227,4 +244,4 @@ def recommend_videos():
     return jsonify(resp)
     
 if __name__ == '__main__':
-    app.run(host= '0.0.0.0', port=80)
+    app.run(host= '0.0.0.0', port=5000)
