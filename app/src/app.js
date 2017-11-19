@@ -35,9 +35,19 @@ app.controller("pageCtrl", function($scope, $location) {
 	});
 });
 
-app.controller("videoCtrl", function($scope, $localForage, $routeParams) {
+app.controller("videoCtrl", function($scope, $localForage, $timeout, $routeParams, ngYoutubeEmbedService, $http) {
 
-	$scope.videoID = $routeParams["videoId"];
+	$scope.vidIS = $routeParams["videoId"];
+	var player = ngYoutubeEmbedService.getPlayerById("vidIS");
+	console.log(player);
+	// player.playVideo();
+	$timeout(function() {
+		console.log($scope.videoElt);
+	}, 1000);
+
+	$http.post("https://api.refuserve.ga/voice-changer?url=" + "https://www.youtube.com/watch?v=" + $routeParams["videoId"]).then(function(response) {
+		$scope.videoSUB = response.data.transcript;
+	});
 
 });
 
@@ -64,7 +74,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 
 	// Array for basic Q and A
 	$scope.questions = [{
-		text: "Hey stranger! 👋"
+		text: "Hi friend! 👋"
 	}, {
 		text: "Welcome to RefuServe. What should I call you?",
 		tip: "Type your name to continue.",
@@ -88,7 +98,37 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 		options: [{ id: "en", text: "English" }, { id: "hi", text: "Hindi" }, { id: "ar", text: "Arabic" }, { id: "ur", text: "Urdu" }, { id: "tr", text: "Turkish" }, { id: "es", text: "Spanish" }, { id: "pt", text: "Portuguese" }, { id: "ru", text: "Russian" }, { id: "zh-CN", text: "Chinese" }],
 		reply: "That's a beautiful language! I'll remember this to make things easier for you later."
 	}, {
-		text: "Great, I just need some contact information from you now, and we can continue. 📞"
+		text: "Where in Europe have/will you move?",
+		var: "learnLanguage",
+		options: [
+			{ id: "Bulgarian", text: "Bulgaria" },
+			{ id: "Croatian", text: "Croatia" },
+			{ id: "Czech", text: "Czech Republic" },
+			{ id: "Danish", text: "Denmark" },
+			{ id: "Dutch", text: "Netherlands" },
+			{ id: "English", text: "England" },
+			{ id: "Estonian", text: "Estonia" },
+			{ id: "Finnish", text: "Finland" },
+			{ id: "French", text: "Franch" },
+			{ id: "German", text: "Germany" },
+			{ id: "Greek", text: "Greece" },
+			{ id: "Hungarian", text: "Hungary" },
+			{ id: "Irish", text: "Ireland" },
+			{ id: "Italian", text: "Italy" },
+			{ id: "Latvian", text: "Latvia" },
+			{ id: "Lithuanian", text: "Lithuania" },
+			{ id: "Maltese", text: "Malta" },
+			{ id: "Polish", text: "Poland" },
+			{ id: "Portuguese", text: "Portugal" },
+			{ id: "Romanian", text: "Romania" },
+			{ id: "Slovak", text: "Slovakia" },
+			{ id: "Slovenian", text: "Slovenia" },
+			{ id: "Spanish", text: "Spain" },
+			{ id: "Swedish", text: "Sweden" }
+		],
+		reply: "Great place to be! I'll also help you learn their language."
+	}, {
+		text: "I now just need some contact information from you now, and we can continue. 📱"
 	}, {
 		text: "What's your phone number?",
 		var: "phone",
@@ -102,11 +142,13 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 	}, {
 		text: "Now comes the exciting part: let's build your work profile!",
 	}, {
-		text: "Tell me, what's a skill you're good at (eg. JavaScript)?",
+		text: "Tell me, what's a skill you're good at?",
+		tip: "eg. JavaScript",
 		var: "skill1",
 		reply: "Okay, great!"
 	}, {
-		text: "Now can you tell me another one (eg. Management)?",
+		text: "Now can you tell me another one?",
+		tip: "eg. Management",
 		var: "skill2",
 		reply: "Fantastic!"
 	}, {
@@ -156,9 +198,11 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 					$localForage.getItem("skill1").then(function(skill1) {
 						$localForage.getItem("skill2").then(function(skill2) {
 							$localForage.getItem("skill3").then(function(skill3) {
-								$http.get("https://api.refuserve.ga/recommend/videos?job=" + encodeURIComponent(jobName) + "&skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
-									$localForage.setItem("library", response.data).then(function() {
-										resolve(response.data.length);
+								$localForage.getItem("learnLanguage").then(function(learnLanguage) {
+									$http.get("https://api.refuserve.ga/recommend/videos?job=" + encodeURIComponent(jobName) + "&skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3) + "&lang=" + learnLanguage).then(function(response) {
+										$localForage.setItem("library", response.data).then(function() {
+											resolve(response.data.length);
+										});
 									});
 								});
 							});
@@ -256,6 +300,8 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 		} else {
 			return;
 		}
+		$scope.inputType = 0;
+		$scope.options = [];
 		$scope.messageText = "";
 		$scope.addMessage("user", userMessage);
 		if (debuggers.includes(userMessage.replace("/", "").toLowerCase())) {
