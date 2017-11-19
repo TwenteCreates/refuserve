@@ -10,6 +10,7 @@ jobs=[{'title':'Project Management','skills':['PMP certification','Agile Scrum c
 
 mySkills=[]
 def recommendJobs(userSkills):
+    print(userSkills)
     mySkills=userSkills
     suggestedJobs=[]
     matchCount=[]

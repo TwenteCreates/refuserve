@@ -214,6 +214,7 @@ def download(object_name):
 @app.route("/recommend/jobs", methods=["GET"])
 def recommend_jobs():
     skills = request.values.get('skills', '')
+    print skills
     resp = recommendJobs(skills.split(','))
     return jsonify(resp)
     
