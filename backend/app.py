@@ -163,17 +163,17 @@ def translate_api_call():
 def hello_world():
     return 'Hello from Flask!'
 
-@app.route('/voice-changer', methods=['POST'])
+@app.route('/voice-changer', methods=['GET','POST','OPTIONS'])
 def get_audio_for_youtube_link():
     resp = dict()
-    youtube_uri = request.get_json().get('url', '') #youtube uri link
-    lang = request.get_json().get('lang', 'en')
+    youtube_uri = request.values.get('url', '') #youtube uri link
+    lang = request.values.get('lang', 'en')
     filename = youtube_uri.split('/')[-1]
     vtt_fullname = '%s.%s.vtt' %(filename, lang)
     # proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     # print proc.communicate()[0]
     # 1. call youtube-dl to create the vtt
-    if os.path.exists(vtt_fullname):
+    if not os.path.exists(vtt_fullname):
         srt_download_command = 'youtube-dl --write-auto-sub --skip-download %s --srt-lang %s -o %s' \
             %(youtube_uri, lang, filename)
         proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
@@ -185,6 +185,10 @@ def get_audio_for_youtube_link():
 
         # Replace the target string
         filedata = filedata.replace('>', '> ')
+        filedata = filedata.replace(',', ', ')
+        filedata = filedata.replace('.', '. ')
+        filedata = filedata.replace(';', '; ')
+        filedata = filedata.replace('!', '! ')
 
         # Write the file out again
         with open(vtt_fullname, 'w') as file:
