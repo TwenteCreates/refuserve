@@ -1,5 +1,4 @@
 from video_api import youtube_search
-from flask import Flask, jsonify
 
 jobs=[{'title':'Project Management','skills':['PMP','Agile', 'SDLC','Scrum','ITIL Foundation','CAPM','Cisco CCNA','Microsoft Project']},
       {'title':'Backend Programmer','skills':['PHP','Ruby','Python','Java','.Net','MySQL','Oracle','SQL Server','Zend','Symfony','CakePHP','SVN','CVS','Git']},
@@ -57,8 +56,8 @@ def recommendVideos(myJob,mySkills):
         options['part']='id,snippet'
         options['max_results']=2
         youtubeResults.append(youtube_search(options))
-#    print (youtubeResults)
+    print (youtubeResults)
     return youtubeResults
     
 
-    
+recommendVideos('Backend Programmer',['Python','Python','Python'])   

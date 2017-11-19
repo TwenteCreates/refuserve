@@ -221,7 +221,8 @@ def recommend_jobs():
 @app.route("/recommend/videos", methods=["GET"])
 def recommend_videos():
     job = request.values.get('job', '')
-    resp = recommendVideos(job)
+    skills = request.values.get('skills', '')
+    resp = recommendVideos(job,skills)
     return jsonify(resp)
     
 if __name__ == '__main__':
