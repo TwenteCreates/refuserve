@@ -36,9 +36,10 @@ def recommendJobs(mySkills):
 #    print(suggestedJobs)
     return suggestedJobs
 
-def recommendVideos(myJob,mySkills):
+def recommendVideos(myJob,mySkills,lang):
     requiredSkills=[]
     toLearnSkills=[]
+    toLearnSkills.append('Learn '+lang)
     for job in jobs:
         if (job['title']== myJob):
             requiredSkills=job['skills']
@@ -49,15 +50,17 @@ def recommendVideos(myJob,mySkills):
                 flag=1
         if (flag==0):
             toLearnSkills.append(skill)
+   
     options=dict()
     youtubeResults=[]
     for toLearnSkill in toLearnSkills:        
-        options['term']=toLearnSkill
+        options['term']='Learn '+toLearnSkill
         options['part']='id,snippet'
         options['max_results']=2
         youtubeResults.append(youtube_search(options))
+        
     print (youtubeResults)
     return youtubeResults
     
 
-recommendVideos('Backend Programmer',['Python','Python','Python'])   
+#recommendVideos('Backend Programmer',['Python'],'German')   

@@ -1,7 +1,6 @@
 
 from googleapiclient.discovery import build
 from keys import DEVELOPER_KEY
-import json
 
 
 YOUTUBE_API_SERVICE_NAME = 'youtube'
@@ -19,9 +18,10 @@ def youtube_search(options):
         ).execute()
     
     listResults=[]
-    vid= dict()
+   
     
     for search_result in search_response.get('items', []):
+        vid= dict()
         if search_result['id']['kind'] == 'youtube#video':
             vid['title'] =search_result['snippet']['title']
             vid['id'] =search_result['id']['videoId']

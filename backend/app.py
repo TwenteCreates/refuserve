@@ -222,7 +222,8 @@ def recommend_jobs():
 def recommend_videos():
     job = request.values.get('job', '')
     skills = request.values.get('skills', '')
-    resp = recommendVideos(job,skills)
+    lang = request.values.get('lang', '')
+    resp = recommendVideos(job,skills,lang)
     return jsonify(resp)
     
 if __name__ == '__main__':
