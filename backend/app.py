@@ -178,8 +178,21 @@ def get_audio_for_youtube_link():
             %(youtube_uri, lang, filename)
         proc = subprocess.Popen(srt_download_command, shell=True, stdout=subprocess.PIPE)
         print proc.communicate()[0]
+
+        # Read in the file
+        with open(vtt_fullname, 'r') as file:
+            filedata = file.read()
+
+        # Replace the target string
+        filedata = filedata.replace('>', '> ')
+
+        # Write the file out again
+        with open(vtt_fullname, 'w') as file:
+            file.write(filedata)
+
     else:
         pass
+
     # subprocess.call(['youtube-dl' ,'-write-auto-sub', '--skip-download',
     #                  youtube_uri, '--srt-lang', lang,
     #                  '-o', filename ])
