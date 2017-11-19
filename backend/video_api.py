@@ -1,6 +1,4 @@
 
-import argparse
-
 from googleapiclient.discovery import build
 from keys import DEVELOPER_KEY
 import json
@@ -29,9 +27,9 @@ def youtube_search(options):
             vid['id'] =search_result['id']['videoId']
             vid['thumbnail'] =search_result['snippet']['thumbnails']['default']['url']
             vid['description'] =search_result['snippet']['description']
+            vid['topic']=options['term']
             listResults.append(vid)
-    print (listResults)
-    return(json.dumps(listResults))
+    return listResults
 
 
 

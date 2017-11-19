@@ -1,5 +1,5 @@
 <header class="primary-header p-3 text-center font-weight-bold">
-	Chat
+	RefuServe
 </header>
 
 <div class="p-4 chat-window">
@@ -41,8 +41,8 @@
 		<span class="input-group-btn">
 			<button class="btn btn-secondary" type="button"><i class="ion ion-md-add" aria-label="Attach"></i></button>
 		</span>
-		<input ng-model="messageText" type="text" class="form-control bg-none" placeholder="Tap here to talk..." ng-show="selectOption == 0">
-		<select ng-model="messageText" class="form-control bg-none" ng-show="selectOption == 1">
+		<input ng-model="messageText" type="text" class="form-control bg-none" placeholder="Tap here to talk..." ng-show="inputType == 0">
+		<select ng-model="messageText" class="form-control bg-none" ng-show="inputType == 1">
 			<option>Select an option</option>
 			<option ng-repeat="option in answerOptions">{{ option }}</option>
 		</select>
