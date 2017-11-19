@@ -1,8 +1,9 @@
 require("angular");
+require("ng-youtube-embed");
 
 var devMode = 1;
 
-var app = angular.module("hackApp", [require("angular-route"), require("angular-localforage")]);
+var app = angular.module("hackApp", [require("angular-route"), require("angular-localforage"), "ngYoutubeEmbed"]);
 
 app.config(function($routeProvider) {
 	$routeProvider
@@ -21,6 +22,9 @@ app.config(function($routeProvider) {
 	}).when("/resume", {
 		templateUrl: "views/resume.html",
 		// controller: "libraryCtrl"
+	}).when("/video/:videoId", {
+		templateUrl: "views/video.html",
+		controller: "videoCtrl"
 	});
 });
 
@@ -29,6 +33,12 @@ app.controller("pageCtrl", function($scope, $location) {
 	$scope.$on("$locationChangeStart", function(event) {
 		$scope.currentPage = $location.$$path;
 	});
+});
+
+app.controller("videoCtrl", function($scope, $localForage, $routeParams) {
+
+	$scope.videoID = $routeParams["videoId"];
+
 });
 
 app.controller("libraryCtrl", function($scope, $localForage) {
@@ -40,6 +50,7 @@ app.controller("libraryCtrl", function($scope, $localForage) {
 	$localForage.getItem("library").then(function(library) {
 		if (library) {
 			$scope.hasLibrary = 1;
+			$scope.library = library;
 		}
 	});
 
@@ -110,7 +121,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 				$localForage.getItem("skill1").then(function(skill1) {
 					$localForage.getItem("skill2").then(function(skill2) {
 						$localForage.getItem("skill3").then(function(skill3) {
-							$http.get("http://34.215.49.164:5000/recommend/jobs?skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
+							$http.get("https://api.refuserve.ga/recommend/jobs?skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
 								var arrayResponse = response.data;
 								// if (arrayResponse.length == 1) {
 								// 	resolve(arrayResponse[0]);
@@ -145,7 +156,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 					$localForage.getItem("skill1").then(function(skill1) {
 						$localForage.getItem("skill2").then(function(skill2) {
 							$localForage.getItem("skill3").then(function(skill3) {
-								$http.get("http://34.215.49.164:5000/recommend/videos?job=" + encodeURIComponent(jobName) + "&skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
+								$http.get("https://api.refuserve.ga/recommend/videos?job=" + encodeURIComponent(jobName) + "&skills=" + encodeURIComponent(skill1) + "," + encodeURIComponent(skill2) + "," + encodeURIComponent(skill3)).then(function(response) {
 									$localForage.setItem("library", response.data).then(function() {
 										resolve(response.data.length);
 									});

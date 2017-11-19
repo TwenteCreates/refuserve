@@ -2,7 +2,7 @@
 	Library
 </header>
 		
-<div class="p-4 chat-window">
+<div class="chat-window">
 
 	<div class="empty-state p-1 text-center" ng-if="!hasLibrary">
 		<h1 class="display-2 text-muted"><i class="ion ion-ios-book-outline"></i></h1>
@@ -11,10 +11,18 @@
 		<p><a class="btn btn-secondary" href="./#!/">Get Started</a></p>
 	</div>
 
-	<div class="card">
-		<img class="card-img-top" src="..." alt="Video Image">
-		<div class="card-body">
-			Video Name
+	<p class="p-4 mb-0">You should watch these videos to improve your skillset:</p>
+
+	<div class="list-group">
+		<div ng-repeat="items in library" class="mb-4">
+			<a href="./#!/video/{{ item.id }}" class="list-group-item rounded-0 list-group-item-action justify-content-between p-0" ng-repeat="item in items">
+				<div style="width: 40%; height: 110px; background: url('{{ item.thumbnail }}') no-repeat #aaa; background-size: cover; float: left" class="mr-3">
+				</div>
+				<div class="p-3">
+					{{ item.title }}
+				</div>
+				<div style="clear: both"></div>
+			</a>
 		</div>
 	</div>
 
