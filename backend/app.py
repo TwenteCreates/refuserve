@@ -213,15 +213,15 @@ def download(object_name):
         
 @app.route("/recommend/videos", methods=["GET"])
 def recommend_videos():
-    skills = request.values.get('skills', [])
-    resp = recommendVideos(skills)
-    jsonify(resp)
+    job = request.values.get('job', '')
+    resp = recommendJobs(job)
+    return jsonify(resp)
     
 @app.route("/recommend/jobs", methods=["GET"])
 def recommend_jobs():
-    job = request.values.get('job', '')
-    resp = recommendJobs(job)
-    jsonify(resp)    
+    skills = request.values.get('skills', [])
+    resp = recommendVideos(skills)
+    return jsonify(resp)
     
 if __name__ == '__main__':
     app.run(host= '0.0.0.0')
