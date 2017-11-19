@@ -211,14 +211,14 @@ def download(object_name):
     else:
         abort(404, "File doesn't exist")
         
-@app.route("/recommend/videos", methods=["GET"])
-def recommend_videos():
+@app.route("/recommend/jobs", methods=["GET"])
+def recommend_jobs():
     skills = request.values.get('skills', [])
     resp = recommendVideos(skills)
     return jsonify(resp)
     
-@app.route("/recommend/jobs", methods=["GET"])
-def recommend_jobs():
+@app.route("/recommend/videos", methods=["GET"])
+def recommend_videos():
     job = request.values.get('job', '')
     resp = recommendJobs(job)
     return jsonify(resp)
