@@ -80,7 +80,7 @@ app.controller("resumeCtrl", function($scope, $localForage, $timeout, $http) {
 		});
 		$localForage.getItem("coverLetter").then(function(coverLetter) {
 			$http.get("https://api.refuserve.ga/translate?text=" + encodeURIComponent(coverLetter) + "&dest=en").then(function(response) {
-				$scope.coverLetter = response.data;
+				$scope.coverLetter = response.data.value;
 			});
 		});
 	}
