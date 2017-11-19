@@ -146,12 +146,17 @@ def delete_user():
         db.users1.drop()
     return jsonify({})
 
+def force_to_unicode(text):
+    "If text is unicode, it is returned as is. If it's str, convert it to Unicode using UTF-8 encoding"
+    return text if isinstance(text, unicode) else text.decode('utf8')
+
 #tested
 translator = Translator()
 @app.route('/translate', methods=['GET'])
 def translate_api_call():
     resp = dict()
     text = request.values.get('text', '')
+    text = force_to_unicode(text)
     dest = request.values.get('dest', 'en')
     print(text)
     x = translator.translate(text, dest=dest)
