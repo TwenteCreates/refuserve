@@ -38177,7 +38177,19 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 				});
 			});
 		},
-		text: "I found {{ response }} great resources to expand your skillset."
+		text: "I found {{ response }} great resources to expand your skillset.",
+		button: "Sounds great!",
+		var: "continue1"
+	}, {
+		text: "I've added them to your library. You can start learning now.",
+		callToAction: "Go to Library",
+		callToActionLink: "/library"
+	}, {
+		text: "I can also help you build your resume.",
+	}, {
+		text: "Do you want to get started with that?",
+		button: "Absolutely 🙌",
+		var: "startResume"
 	}, {
 		text: "I've added them to your library. You can start learning now.",
 		callToAction: "Go to Library",
