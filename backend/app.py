@@ -194,7 +194,7 @@ def get_audio_for_youtube_link():
     file_contents = ""
     with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
         file_contents = f.read()
-    resp['transcript'] = file_contents
+    resp['transcript'] = file_contents[20:]  # removing unnnecessary header before this
     # tts = gTTS(text=file_contents, lang=lang, slow=False)
     # mp3_filename = '%s.mp3' %(filename)
     # tts.save(mp3_filename)
