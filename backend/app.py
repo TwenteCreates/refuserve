@@ -1,10 +1,10 @@
 from googletrans import Translator
-from flask import Flask, jsonify, request, abort, url_for
+from flask import Flask, jsonify, request, abort, url_for, redirect
 from flask_cors import CORS
 from flask_cloudy import Storage
 
 from gtts import gTTS
-
+from recommender import recommendJobs, recommendVideos
 import subprocess
 app = Flask(__name__)
 CORS(app)
@@ -164,8 +164,7 @@ def hello_world():
 
 @app.route('/voice-changer', methods=['POST'])
 def get_audio_for_youtube_link():
-    import pdb; pdb.set_trace()
-    # resp = dict()
+    resp = dict()
     youtube_uri = request.get_json().get('url', '') #youtube uri link
     lang = request.get_json().get('lang', 'en')
     filename = youtube_uri.split('/')[-1]
@@ -183,6 +182,7 @@ def get_audio_for_youtube_link():
     #                  '-o', filename ])
     # 2. vtt to transcript
     #python test.py example.hi.vtt --transcript --scc_lang=hi
+
     transcript_creat_commmand = 'python vtt-to-transcript.py %s --transcript --scc_lang %s' \
         %(vtt_fullname, lang)
     proc = subprocess.Popen(transcript_creat_commmand, shell=True, stdout=subprocess.PIPE)
@@ -190,14 +190,17 @@ def get_audio_for_youtube_link():
     # subprocess.call(['python', 'vtt-to-transcript.py', vtt_fullname, 'transcript',
     #                  '--scc_lang', lang])
     # 3. tts the transcript
-    file_contents = open('transcript.txt', encoding='utf-8').read()
-    tts = gTTS(text=file_contents, lang='en', slow=True)
+    import codecs
+    with codecs.open('transcript.txt', 'r', encoding='utf8') as f:
+        file_contents = f.read()
+    # file_contents = open(, encoding='utf-8').read()
+    tts = gTTS(text=file_contents, lang=lang, slow=False)
     mp3_filename = '%s.mp3' %(filename)
     tts.save(mp3_filename)
-    storage.upload(mp3_filename)
+    x = storage.upload(mp3_filename)
     import os; os.remove(mp3_filename)
-    # resp['audio'] = url
-    return redirect(url_for("download", object_name=mp3_filename))
+    resp['audio'] = url_for("download", object_name=x.full_url)
+    return jsonify(resp)
 
 @app.route("/download/<path:object_name>")
 def download(object_name):
@@ -207,5 +210,19 @@ def download(object_name):
         return download_url
     else:
         abort(404, "File doesn't exist")
+        
+@app.route("/recommend/jobs", methods=["GET"])
+def recommend_jobs():
+    skills = request.values.get('skills', '')
+    print skills
+    resp = recommendJobs(skills.split(','))
+    return jsonify(resp)
+    
+@app.route("/recommend/videos", methods=["GET"])
+def recommend_videos():
+    job = request.values.get('job', '')
+    resp = recommendVideos(job)
+    return jsonify(resp)
+    
 if __name__ == '__main__':
     app.run(host= '0.0.0.0')
