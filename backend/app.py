@@ -164,7 +164,7 @@ def hello_world():
 
 @app.route('/voice-changer', methods=['POST'])
 def get_audio_for_youtube_link():
-    # resp = dict()
+    resp = dict()
     youtube_uri = request.get_json().get('url', '') #youtube uri link
     lang = request.get_json().get('lang', 'en')
     filename = youtube_uri.split('/')[-1]
@@ -200,8 +200,8 @@ def get_audio_for_youtube_link():
     tts.save(mp3_filename)
     storage.upload(mp3_filename)
     import os; os.remove(mp3_filename)
-    # resp['audio'] = url
-    return redirect(url_for("download", object_name=mp3_filename))
+    resp['audio'] = url_for("download", object_name=mp3_filename)
+    return jsonify(resp)
 
 @app.route("/download/<path:object_name>")
 def download(object_name):
