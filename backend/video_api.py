@@ -29,7 +29,7 @@ def youtube_search(options):
             vid['description'] =search_result['snippet']['description']
             vid['topic']=options['term']
             listResults.append(vid)
-    return(json.dumps(listResults))
+    return listResults
 
 
 

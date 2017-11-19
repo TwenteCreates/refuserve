@@ -1,10 +1,10 @@
 from video_api import youtube_search
-
+from flask import Flask, jsonify
 
 jobs=[{'title':'Project Management','skills':['PMP','Agile', 'SDLC','Scrum','ITIL Foundation','CAPM','Cisco CCNA','Microsoft Project']},
       {'title':'Backend Programmer','skills':['PHP','Ruby','Python','Java','.Net','MySQL','Oracle','SQL Server','Zend','Symfony','CakePHP','SVN','CVS','Git']},
       {'title':'Data Analyst','skills':['Python','R packages','Descriptive and Inferential Statistics','Multivariable Calculus','Linear algebra','Experimental Design','Supervised and Reinforcement Learning','Database Systems','Interpretation of Data','SPSS','Cognos','SAS','MATLAB']},
-      {'title':'Frontend Developer','skills':['HTML','CSS','JavaScript','jQuery','CSS Preprocessing','Git','Responsive Design','Testing and Debugging','Browser Developer Tools','Building and Automation Tools Web Performance','Command Line']},
+      {'title':'Frontend Developer','skills':['HTML','CSS','JavaScript','jQuery','CSS Preprocessing','Git','Responsive Design','Testing and Debugging','Browser Developer Tools','Building and Automation Tools Web Performance','Command Line Interface']},
       {'title':'Graphic Designer','skills':['Typography','Adobe Photoshop','Sketch','Adobe InDesign','Quark','HTML','CSS','Photography','Social Media Marketing']}
     ]
 
@@ -59,7 +59,6 @@ def recommendVideos(myJob,mySkills):
         youtubeResults.append(youtube_search(options))
 #    print (youtubeResults)
     return youtubeResults
-    
     
 
     
