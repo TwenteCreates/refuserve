@@ -205,6 +205,7 @@ def get_audio_for_youtube_link():
 
 @app.route("/download/<path:object_name>")
 def download(object_name):
+    import pdb; pdb.set_trace()
     my_object = storage.get(object_name)
     if my_object:
         download_url = my_object.download()
