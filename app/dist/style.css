@@ -139,4 +139,18 @@ body {
 #google_translate_element2 {
   display: none !important; }
 
+@media print {
+  body {
+    font-size: 110%;
+    font-family: serif;
+    max-width: 80%;
+    margin: 10vh auto;
+    line-height: 1.65; }
+
+  .printbigger {
+    font-size: 200%; }
+
+  header, nav, footer, .downloadPDF {
+    display: none; } }
+
 /*# sourceMappingURL=style.css.map */

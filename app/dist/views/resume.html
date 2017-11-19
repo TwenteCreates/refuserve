@@ -3,11 +3,33 @@
 </header>
 		
 <div class="p-4 chat-window">
-	<div class="empty-state p-1 text-center">
+	<div class="empty-state p-1 text-center" ng-show="initX == 0">
 		<h1 class="display-2 text-muted"><i class="ion ion-ios-document-outline"></i></h1>
 		<h5>Your professional r&eacute;sum&eacute; is waiting for you.</h5>
 		<p class="text-muted">Click on the button below to download your r&eacute;sum&eacute;.</p>
-		<p><a class="btn btn-secondary" href="./#!/">Download Your R&eacute;sum&eacute;</a></p>
+		<p><button class="btn btn-secondary" ng-click="showResume()">Download Your R&eacute;sum&eacute;</button></p>
+	</div>
+	<div class="p-1" ng-show="initX == 1">
+		<p>
+			<strong class="printbigger">{{ name }}</strong><br>
+			{{ mostRecentJob_position }}
+		</p>
+		<p>
+			<strong>Phone: </strong>{{ phone }}<br>
+			<strong>Email: </strong>{{ email }}<br>
+			<strong>Languages: </strong> English, {{ lang }}<br>
+			<strong>Skills: </strong> {{ skill1 }}, {{ skill2 }}, {{ skill3 }}<br>
+		</p>
+		<p>
+			<strong>{{ mostRecentJob_location }}</strong><br>
+			{{ mostRecentJob_position }} &middot; {{ mostRecentJob_startDate }}&ndash;{{ mostRecentJob_endDate }}
+		</p>
+		<p>
+			<strong>Cover Letter</strong><br>
+			{{ coverLetter }}
+		</p>
+		<p>{{ willingToRelocate == "Yes" ? "Willing to relocate" : "Not willing to relocate" }}</p>
+		<p><button class="btn btn-secondary downloadPDF" onclick="window.print()">Download as PDF</button></p>
 	</div>
 </div>
 	

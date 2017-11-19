@@ -37987,7 +37987,7 @@ app.config(function($routeProvider) {
 		// controller: "libraryCtrl"
 	}).when("/resume", {
 		templateUrl: "views/resume.html",
-		// controller: "libraryCtrl"
+		controller: "resumeCtrl"
 	}).when("/video/:videoId", {
 		templateUrl: "views/video.html",
 		controller: "videoCtrl"
@@ -37999,6 +37999,57 @@ app.controller("pageCtrl", function($scope, $location) {
 	$scope.$on("$locationChangeStart", function(event) {
 		$scope.currentPage = $location.$$path;
 	});
+});
+
+app.controller("resumeCtrl", function($scope, $localForage, $timeout, $http) {
+	$scope.initX = 0;
+	$scope.showResume = function() {
+		$scope.initX = 1;
+		$localForage.getItem("name").then(function(name) {
+			$scope.name = name;
+		});
+		$localForage.getItem("mostRecentJob_position").then(function(mostRecentJob_position) {
+			$scope.mostRecentJob_position = mostRecentJob_position;
+		});
+		$localForage.getItem("phone").then(function(phone) {
+			$scope.phone = phone;
+		});
+		$localForage.getItem("email").then(function(email) {
+			$scope.email = email;
+		});
+		$localForage.getItem("lang").then(function(lang) {
+			$scope.lang = lang;
+		});
+		$localForage.getItem("skill1").then(function(skill1) {
+			$scope.skill1 = skill1;
+		});
+		$localForage.getItem("skill2").then(function(skill2) {
+			$scope.skill2 = skill2;
+		});
+		$localForage.getItem("skill3").then(function(skill3) {
+			$scope.skill3 = skill3;
+		});
+		$localForage.getItem("mostRecentJob_location").then(function(mostRecentJob_location) {
+			$scope.mostRecentJob_location = mostRecentJob_location;
+		});
+		$localForage.getItem("mostRecentJob_position").then(function(mostRecentJob_position) {
+			$scope.mostRecentJob_position = mostRecentJob_position;
+		});
+		$localForage.getItem("mostRecentJob_startDate").then(function(mostRecentJob_startDate) {
+			$scope.mostRecentJob_startDate = mostRecentJob_startDate;
+		});
+		$localForage.getItem("mostRecentJob_endDate").then(function(mostRecentJob_endDate) {
+			$scope.mostRecentJob_endDate = mostRecentJob_endDate;
+		});
+		$localForage.getItem("willingToRelocate").then(function(willingToRelocate) {
+			$scope.willingToRelocate = willingToRelocate;
+		});
+		$localForage.getItem("coverLetter").then(function(coverLetter) {
+			$http.get("https://api.refuserve.ga/translate?text=" + encodeURIComponent(coverLetter) + "&dest=en").then(function(response) {
+				$scope.coverLetter = response.data;
+			});
+		});
+	}
 });
 
 app.controller("videoCtrl", function($scope, $localForage, $timeout, $routeParams, ngYoutubeEmbedService, $http) {
@@ -38177,9 +38228,7 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 				});
 			});
 		},
-		text: "I found {{ response }} great resources to expand your skillset.",
-		button: "Sounds great!",
-		var: "continue1"
+		text: "I found {{ response }} great resources to expand your skillset."
 	}, {
 		text: "I've added them to your library. You can start learning now.",
 		callToAction: "Go to Library",
@@ -38189,11 +38238,41 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 	}, {
 		text: "Do you want to get started with that?",
 		button: "Absolutely 🙌",
-		var: "startResume"
+		var: "startResume",
+		reply: "Okay. Let me ask you some quick questions."
 	}, {
-		text: "I've added them to your library. You can start learning now.",
-		callToAction: "Go to Library",
-		callToActionLink: "/library"
+		text: "What was your most recent job position?",
+		tip: "eg. Web Developer",
+		var: "mostRecentJob_position",
+		reply: "Lovely."
+	}, {
+		text: "Where did you do that job?",
+		tip: "eg. Trivago GmbH",
+		var: "mostRecentJob_location",
+		reply: "Okay, great!"
+	}, {
+		text: "When did you start that job?",
+		tip: "eg. March 2010",
+		var: "mostRecentJob_startDate",
+		reply: "Perfect."
+	}, {
+		text: "And when did it end?",
+		tip: "eg. January 2014",
+		var: "mostRecentJob_endDate",
+		reply: "Great, we're almost done!"
+	}, {
+		text: "Let's write a cover letter now. You can write it in your native language, and I'll take care of it.",
+		var: "coverLetter",
+		reply: "I couldn't have said it better."
+	}, {
+		text: "Are you willing to relocate to another city or country?",
+		var: "willingToRelocate",
+		options: [{ id: "Yes", text: "Yes" }, { id: "No", text: "No" }],
+		reply: "Great, that's all I need for now!",
+	}, {
+		text: "Your shiny new resume is ready! 🎉",
+		callToAction: "Go to Resume",
+		callToActionLink: "/resume"
 	}, {
 		text: "Let me know if there's anything else I can help out with. 😊",
 		var: "NeXTSTEP",
@@ -38317,7 +38396,10 @@ app.controller("chatCtrl", function($scope, $timeout, $localForage, $window, $ht
 		}
 	}
 
-	var speed = 100;
+	var speed = 1000;
+	if (document.domain == "127.0.0.1") {
+		speed = 100;
+	}
 
 	// Function for speaking
 	$scope.say = function(botMessage, tip, callToAction, callToActionLink) {
