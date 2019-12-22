@@ -10,6 +10,10 @@ RefuServe is an app to help refugees find jobs in Europe. It provided e-learning
 
 [View demo video →](https://www.youtube.com/watch?v=K-2cs4cFhCk)
 
+## 👥 Contributors
+
+[![Profile pictures of contributors on GitHub](https://services.anandchowdhary.now.sh/api/github-contributors?repo=c-r-e-a-t-e/refuserve)](https://github.com/c-r-e-a-t-e/refuserve/graphs/contributors)
+
 ## 📄 License
 
 - Code: [MIT](/LICENSE)
